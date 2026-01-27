@@ -31,29 +31,32 @@ PLATFORMS: list[Platform] = [
 ]
 
 
-# https://developers.home-assistant.io/docs/config_entries_index/#setting-up-an-entry
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: NationalGridConfigEntry,
 ) -> bool:
     """Set up this integration using UI."""
+    client = NationalGridApiClient(
+        username=entry.data[CONF_USERNAME],
+        password=entry.data[CONF_PASSWORD],
+        session=async_get_clientsession(hass),
+    )
+
     coordinator = NationalGridDataUpdateCoordinator(
         hass=hass,
         logger=LOGGER,
         name=DOMAIN,
         update_interval=timedelta(hours=1),
     )
+    coordinator.config_entry = entry
+
     entry.runtime_data = NationalGridData(
-        client=NationalGridApiClient(
-            username=entry.data[CONF_USERNAME],
-            password=entry.data[CONF_PASSWORD],
-            session=async_get_clientsession(hass),
-        ),
+        client=client,
         integration=async_get_loaded_integration(hass, entry.domain),
         coordinator=coordinator,
     )
 
-    # https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
+    # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

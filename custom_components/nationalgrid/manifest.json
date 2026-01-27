@@ -4,11 +4,11 @@
   "codeowners": [
     "@ryanmorash"
   ],
-  "dependencies": ["aionatgrid"],
   "config_flow": true,
   "documentation": "https://github.com/ryanmorash/ha_nationalgrid",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/ryanmorash/ha_nationalgrid/issues",
+  "requirements": ["aionatgrid==0.1.0"],
   "version": "0.1.0"
 }

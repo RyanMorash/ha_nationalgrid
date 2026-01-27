@@ -2,56 +2,149 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import UnitOfEnergy
 
+from .const import DOMAIN
 from .entity import NationalGridEntity
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-    from .coordinator import NationalGridDataUpdateCoordinator
+    from .coordinator import MeterData, NationalGridDataUpdateCoordinator
     from .data import NationalGridConfigEntry
 
-ENTITY_DESCRIPTIONS = (
-    SensorEntityDescription(
-        key="nationalgrid",
-        name="National Grid Sensor",
-        icon="mdi:format-quote-close",
+
+@dataclass(frozen=True, kw_only=True)
+class NationalGridSensorEntityDescription(SensorEntityDescription):
+    """Describes National Grid sensor entity."""
+
+    value_fn: Callable[[NationalGridDataUpdateCoordinator, MeterData], Any]
+    available_fn: Callable[[MeterData], bool] = lambda _: True
+
+
+def _get_energy_usage(
+    coordinator: NationalGridDataUpdateCoordinator, meter_data: MeterData
+) -> float | None:
+    """Get the latest energy usage for a meter."""
+    fuel_type = meter_data.meter.get("fuelType")
+    usage = coordinator.get_latest_usage(meter_data.account_id, fuel_type)
+    if usage:
+        return usage.get("usage")
+    return None
+
+
+def _get_energy_cost(
+    coordinator: NationalGridDataUpdateCoordinator, meter_data: MeterData
+) -> float | None:
+    """Get the latest energy cost for a meter."""
+    fuel_type = meter_data.meter.get("fuelType")
+    cost = coordinator.get_latest_cost(meter_data.account_id, fuel_type)
+    if cost:
+        return cost.get("amount")
+    return None
+
+
+def _get_usage_period(
+    coordinator: NationalGridDataUpdateCoordinator, meter_data: MeterData
+) -> str | None:
+    """Get the usage period as a string."""
+    fuel_type = meter_data.meter.get("fuelType")
+    usage = coordinator.get_latest_usage(meter_data.account_id, fuel_type)
+    if usage:
+        year_month = usage.get("usageYearMonth", 0)
+        if year_month:
+            year = year_month // 100
+            month = year_month % 100
+            return f"{year}-{month:02d}"
+    return None
+
+
+SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
+    NationalGridSensorEntityDescription(
+        key="energy_usage",
+        translation_key="energy_usage",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=_get_energy_usage,
+    ),
+    NationalGridSensorEntityDescription(
+        key="energy_cost",
+        translation_key="energy_cost",
+        native_unit_of_measurement="$",
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=_get_energy_cost,
+    ),
+    NationalGridSensorEntityDescription(
+        key="usage_period",
+        translation_key="usage_period",
+        value_fn=_get_usage_period,
+        icon="mdi:calendar",
     ),
 )
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
+    hass: HomeAssistant,  # noqa: ARG001
     entry: NationalGridConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    async_add_entities(
-        NationalGridSensor(
-            coordinator=entry.runtime_data.coordinator,
-            entity_description=entity_description,
-        )
-        for entity_description in ENTITY_DESCRIPTIONS
-    )
+    coordinator = entry.runtime_data.coordinator
+
+    entities: list[NationalGridSensor] = []
+
+    # Create sensors for each meter
+    if coordinator.data:
+        for service_point_number, meter_data in coordinator.data.meters.items():
+            entities.extend(
+                NationalGridSensor(
+                    coordinator=coordinator,
+                    service_point_number=service_point_number,
+                    entity_description=description,
+                )
+                for description in SENSOR_DESCRIPTIONS
+                if description.available_fn(meter_data)
+            )
+
+    async_add_entities(entities)
 
 
 class NationalGridSensor(NationalGridEntity, SensorEntity):
-    """nationalgrid Sensor class."""
+    """National Grid sensor entity."""
+
+    entity_description: NationalGridSensorEntityDescription
 
     def __init__(
         self,
         coordinator: NationalGridDataUpdateCoordinator,
-        entity_description: SensorEntityDescription,
+        service_point_number: str,
+        entity_description: NationalGridSensorEntityDescription,
     ) -> None:
-        """Initialize the sensor class."""
-        super().__init__(coordinator)
+        """Initialize the sensor."""
+        super().__init__(coordinator, service_point_number)
         self.entity_description = entity_description
+        self._attr_unique_id = (
+            f"{DOMAIN}_{service_point_number}_{entity_description.key}"
+        )
 
     @property
-    def native_value(self) -> str | None:
-        """Return the native value of the sensor."""
-        return self.coordinator.data.get("body")
+    def native_value(self) -> Any:
+        """Return the sensor value."""
+        meter_data = self.coordinator.get_meter_data(self._service_point_number)
+        if meter_data is None:
+            return None
+        return self.entity_description.value_fn(self.coordinator, meter_data)

@@ -1,42 +1,43 @@
-"""Sample API Client."""
+"""National Grid API Client wrapper around aionatgrid."""
 
 from __future__ import annotations
 
-import socket
-from typing import Any
+from typing import TYPE_CHECKING
 
-import aiohttp
-import async_timeout
+from aionatgrid import NationalGridClient, NationalGridConfig
+from aionatgrid.exceptions import (
+    CannotConnectError,
+    InvalidAuthError,
+    NationalGridError,
+)
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    import aiohttp
+    from aionatgrid.models import (
+        AccountLink,
+        BillingAccount,
+        EnergyUsage,
+        EnergyUsageCost,
+        IntervalRead,
+    )
 
 
 class NationalGridApiClientError(Exception):
     """Exception to indicate a general API error."""
 
 
-class NationalGridApiClientCommunicationError(
-    NationalGridApiClientError,
-):
+class NationalGridApiClientCommunicationError(NationalGridApiClientError):
     """Exception to indicate a communication error."""
 
 
-class NationalGridApiClientAuthenticationError(
-    NationalGridApiClientError,
-):
+class NationalGridApiClientAuthenticationError(NationalGridApiClientError):
     """Exception to indicate an authentication error."""
 
 
-def _verify_response_or_raise(response: aiohttp.ClientResponse) -> None:
-    """Verify that the response is valid."""
-    if response.status in (401, 403):
-        msg = "Invalid credentials"
-        raise NationalGridApiClientAuthenticationError(
-            msg,
-        )
-    response.raise_for_status()
-
-
 class NationalGridApiClient:
-    """Sample API Client."""
+    """Wrapper around aionatgrid.NationalGridClient for Home Assistant."""
 
     def __init__(
         self,
@@ -44,58 +45,107 @@ class NationalGridApiClient:
         password: str,
         session: aiohttp.ClientSession,
     ) -> None:
-        """Sample API Client."""
-        self._username = username
-        self._password = password
-        self._session = session
+        """Initialize the API client."""
+        self._config = NationalGridConfig(username=username, password=password)
+        self._client = NationalGridClient(config=self._config, session=session)
 
-    async def async_get_data(self) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
-            method="get",
-            url="https://jsonplaceholder.typicode.com/posts/1",
-        )
-
-    async def async_set_title(self, value: str) -> Any:
-        """Get data from the API."""
-        return await self._api_wrapper(
-            method="patch",
-            url="https://jsonplaceholder.typicode.com/posts/1",
-            data={"title": value},
-            headers={"Content-type": "application/json; charset=UTF-8"},
-        )
-
-    async def _api_wrapper(
-        self,
-        method: str,
-        url: str,
-        data: dict | None = None,
-        headers: dict | None = None,
-    ) -> Any:
-        """Get information from the API."""
+    async def async_get_linked_accounts(self) -> list[AccountLink]:
+        """Get all linked billing accounts."""
         try:
-            async with async_timeout.timeout(10):
-                response = await self._session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    json=data,
-                )
-                _verify_response_or_raise(response)
-                return await response.json()
+            return await self._client.get_linked_accounts()
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except CannotConnectError as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching linked accounts: {err}"
+            raise NationalGridApiClientError(msg) from err
 
-        except TimeoutError as exception:
-            msg = f"Timeout error fetching information - {exception}"
-            raise NationalGridApiClientCommunicationError(
-                msg,
-            ) from exception
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = f"Error fetching information - {exception}"
-            raise NationalGridApiClientCommunicationError(
-                msg,
-            ) from exception
-        except Exception as exception:  # pylint: disable=broad-except
-            msg = f"Something really wrong happened! - {exception}"
-            raise NationalGridApiClientError(
-                msg,
-            ) from exception
+    async def async_get_billing_account(self, account_number: str) -> BillingAccount:
+        """Get billing account information."""
+        try:
+            return await self._client.get_billing_account(account_number)
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except CannotConnectError as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching billing account {account_number}: {err}"
+            raise NationalGridApiClientError(msg) from err
+
+    async def async_get_energy_usages(
+        self,
+        account_number: str,
+        from_month: int,
+        first: int = 12,
+    ) -> list[EnergyUsage]:
+        """Get historical energy usages."""
+        try:
+            return await self._client.get_energy_usages(
+                account_number=account_number,
+                from_month=from_month,
+                first=first,
+            )
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except CannotConnectError as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching energy usages: {err}"
+            raise NationalGridApiClientError(msg) from err
+
+    async def async_get_energy_usage_costs(
+        self,
+        account_number: str,
+        query_date: date | str,
+        company_code: str,
+    ) -> list[EnergyUsageCost]:
+        """Get energy usage costs."""
+        try:
+            return await self._client.get_energy_usage_costs(
+                account_number=account_number,
+                query_date=query_date,
+                company_code=company_code,
+            )
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except CannotConnectError as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching energy usage costs: {err}"
+            raise NationalGridApiClientError(msg) from err
+
+    async def async_get_interval_reads(
+        self,
+        premise_number: str,
+        service_point_number: str,
+        start_datetime: str,
+    ) -> list[IntervalRead]:
+        """Get smart meter interval reads."""
+        try:
+            return await self._client.get_interval_reads(
+                premise_number=premise_number,
+                service_point_number=service_point_number,
+                start_datetime=start_datetime,
+            )
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except CannotConnectError as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching interval reads: {err}"
+            raise NationalGridApiClientError(msg) from err
+
+    async def close(self) -> None:
+        """Close the client session."""
+        await self._client.close()

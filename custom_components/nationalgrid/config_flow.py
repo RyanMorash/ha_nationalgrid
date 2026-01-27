@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
@@ -15,7 +17,7 @@ from .api import (
     NationalGridApiClientCommunicationError,
     NationalGridApiClientError,
 )
-from .const import DOMAIN, LOGGER
+from .const import CONF_SELECTED_ACCOUNTS, DOMAIN, LOGGER
 
 
 class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -23,17 +25,26 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._username: str | None = None
+        self._password: str | None = None
+        self._accounts: list[dict[str, str]] = []
+
     async def async_step_user(
         self,
         user_input: dict | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Handle a flow initialized by the user."""
-        _errors = {}
+        _errors: dict[str, str] = {}
         if user_input is not None:
+            self._username = user_input[CONF_USERNAME]
+            self._password = user_input[CONF_PASSWORD]
+
             try:
-                await self._test_credentials(
-                    username=user_input[CONF_USERNAME],
-                    password=user_input[CONF_PASSWORD],
+                self._accounts = await self._fetch_accounts(
+                    username=self._username,
+                    password=self._password,
                 )
             except NationalGridApiClientAuthenticationError as exception:
                 LOGGER.warning(exception)
@@ -45,17 +56,23 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(
-                    ## Do NOT use this in production code
-                    ## The unique_id should never be something that can change
-                    ## https://developers.home-assistant.io/docs/config_entries_config_flow_handler#unique-ids
-                    unique_id=slugify(user_input[CONF_USERNAME])
-                )
+                await self.async_set_unique_id(slugify(self._username))
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=user_input[CONF_USERNAME],
-                    data=user_input,
-                )
+
+                if len(self._accounts) == 1:
+                    # Single account - skip selection and auto-select
+                    return self.async_create_entry(
+                        title=self._username,
+                        data={
+                            CONF_USERNAME: self._username,
+                            CONF_PASSWORD: self._password,
+                            CONF_SELECTED_ACCOUNTS: [
+                                self._accounts[0]["billingAccountId"]
+                            ],
+                        },
+                    )
+                # Multiple accounts - proceed to selection step
+                return await self.async_step_select_accounts()
 
         return self.async_show_form(
             step_id="user",
@@ -79,11 +96,65 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=_errors,
         )
 
-    async def _test_credentials(self, username: str, password: str) -> None:
-        """Validate credentials."""
+    async def async_step_select_accounts(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle the account selection step."""
+        if user_input is not None:
+            selected = user_input.get(CONF_SELECTED_ACCOUNTS, [])
+            if not selected:
+                return self.async_show_form(
+                    step_id="select_accounts",
+                    data_schema=self._get_account_selection_schema(),
+                    errors={"base": "no_accounts_selected"},
+                )
+
+            return self.async_create_entry(
+                title=self._username,
+                data={
+                    CONF_USERNAME: self._username,
+                    CONF_PASSWORD: self._password,
+                    CONF_SELECTED_ACCOUNTS: selected,
+                },
+            )
+
+        return self.async_show_form(
+            step_id="select_accounts",
+            data_schema=self._get_account_selection_schema(),
+        )
+
+    def _get_account_selection_schema(self) -> vol.Schema:
+        """Get the schema for account selection."""
+        account_options = [
+            selector.SelectOptionDict(
+                value=account["billingAccountId"],
+                label=f"Account {account['billingAccountId']}",
+            )
+            for account in self._accounts
+        ]
+
+        return vol.Schema(
+            {
+                vol.Required(CONF_SELECTED_ACCOUNTS): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=account_options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    ),
+                ),
+            }
+        )
+
+    async def _fetch_accounts(
+        self, username: str, password: str
+    ) -> list[dict[str, str]]:
+        """Fetch linked accounts from the API."""
         client = NationalGridApiClient(
             username=username,
             password=password,
             session=async_create_clientsession(self.hass),
         )
-        await client.async_get_data()
+        accounts = await client.async_get_linked_accounts()
+        # Convert to plain dicts for storage
+        return [dict(account) for account in accounts]
