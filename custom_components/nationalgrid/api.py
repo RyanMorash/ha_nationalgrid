@@ -14,7 +14,6 @@ from aionatgrid.exceptions import (
 if TYPE_CHECKING:
     from datetime import date
 
-    import aiohttp
     from aionatgrid.models import (
         AccountLink,
         BillingAccount,
@@ -43,11 +42,12 @@ class NationalGridApiClient:
         self,
         username: str,
         password: str,
-        session: aiohttp.ClientSession,
     ) -> None:
         """Initialize the API client."""
         self._config = NationalGridConfig(username=username, password=password)
-        self._client = NationalGridClient(config=self._config, session=session)
+        # Don't pass a session - let the library create its own with proper
+        # cookie jar configuration for Azure AD B2C authentication
+        self._client = NationalGridClient(config=self._config)
         self._context_entered = False
 
     async def async_init(self) -> None:

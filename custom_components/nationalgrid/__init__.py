@@ -11,7 +11,6 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_loaded_integration
 
 from .api import NationalGridApiClient
@@ -39,7 +38,6 @@ async def async_setup_entry(
     client = NationalGridApiClient(
         username=entry.data[CONF_USERNAME],
         password=entry.data[CONF_PASSWORD],
-        session=async_get_clientsession(hass),
     )
 
     coordinator = NationalGridDataUpdateCoordinator(

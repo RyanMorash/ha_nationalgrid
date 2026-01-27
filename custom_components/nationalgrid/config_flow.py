@@ -8,7 +8,6 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from slugify import slugify
 
 from .api import (
@@ -153,8 +152,10 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         client = NationalGridApiClient(
             username=username,
             password=password,
-            session=async_create_clientsession(self.hass),
         )
-        accounts = await client.async_get_linked_accounts()
-        # Convert to plain dicts for storage
-        return [dict(account) for account in accounts]
+        try:
+            accounts = await client.async_get_linked_accounts()
+            # Convert to plain dicts for storage
+            return [dict(account) for account in accounts]
+        finally:
+            await client.close()
