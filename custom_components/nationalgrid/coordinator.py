@@ -15,16 +15,6 @@ from .api import (
 )
 from .const import CONF_SELECTED_ACCOUNTS, LOGGER
 
-# Mapping of region abbreviations to company codes for the GraphQL API
-# Known company codes: NECO (New England), KEDNE (New York/KeySpan)
-REGION_TO_COMPANY_CODE: dict[str, str] = {
-    "MA": "NECO",
-    "RI": "NECO",
-    "NY": "KEDNE",
-    "NECO": "NECO",
-    "KEDNE": "KEDNE",
-}
-
 if TYPE_CHECKING:
     from aionatgrid.models import (
         BillingAccount,
@@ -118,22 +108,19 @@ class NationalGridDataUpdateCoordinator(
                     )
                     usages[account_id] = []
 
-                # Fetch energy costs
+                # Fetch energy costs (company_code is the region from billing account)
                 try:
-                    region = billing_account.get("regionAbbreviation", "")
-                    company_code = REGION_TO_COMPANY_CODE.get(region, region)
-                    if company_code:
+                    region = billing_account.get("region", "")
+                    if region:
                         account_costs = await client.async_get_energy_usage_costs(
                             account_number=account_id,
                             query_date=today,
-                            company_code=company_code,
+                            company_code=region,
                         )
                         costs[account_id] = account_costs
                     else:
                         LOGGER.debug(
-                            "Unknown region %s for account %s, skipping costs",
-                            region,
-                            account_id,
+                            "No region for account %s, skipping costs", account_id
                         )
                         costs[account_id] = []
                 except NationalGridApiClientError as err:
