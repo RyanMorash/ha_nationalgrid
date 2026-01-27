@@ -11,7 +11,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfEnergy
 
 from .const import DOMAIN
 from .entity import NationalGridEntity
@@ -25,12 +24,17 @@ if TYPE_CHECKING:
     from .coordinator import MeterData, NationalGridDataUpdateCoordinator
     from .data import NationalGridConfigEntry
 
+# Unit constants
+UNIT_KWH = "kWh"
+UNIT_THERM = "therm"
+
 
 @dataclass(frozen=True, kw_only=True)
 class NationalGridSensorEntityDescription(SensorEntityDescription):
     """Describes National Grid sensor entity."""
 
     value_fn: Callable[[NationalGridDataUpdateCoordinator, MeterData], Any]
+    unit_fn: Callable[[MeterData], str | None] | None = None
     available_fn: Callable[[MeterData], bool] = lambda _: True
 
 
@@ -71,14 +75,22 @@ def _get_usage_period(
     return None
 
 
+def _get_energy_unit(meter_data: MeterData) -> str:
+    """Get the appropriate energy unit based on fuel type."""
+    fuel_type = meter_data.meter.get("fuelType", "").upper()
+    if fuel_type == "GAS":
+        return UNIT_THERM
+    return UNIT_KWH
+
+
 SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
         key="energy_usage",
         translation_key="energy_usage",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
         value_fn=_get_energy_usage,
+        unit_fn=_get_energy_unit,
     ),
     NationalGridSensorEntityDescription(
         key="energy_cost",
@@ -115,6 +127,7 @@ async def async_setup_entry(
                     coordinator=coordinator,
                     service_point_number=service_point_number,
                     entity_description=description,
+                    meter_data=meter_data,
                 )
                 for description in SENSOR_DESCRIPTIONS
                 if description.available_fn(meter_data)
@@ -133,6 +146,7 @@ class NationalGridSensor(NationalGridEntity, SensorEntity):
         coordinator: NationalGridDataUpdateCoordinator,
         service_point_number: str,
         entity_description: NationalGridSensorEntityDescription,
+        meter_data: MeterData,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, service_point_number)
@@ -140,6 +154,11 @@ class NationalGridSensor(NationalGridEntity, SensorEntity):
         self._attr_unique_id = (
             f"{DOMAIN}_{service_point_number}_{entity_description.key}"
         )
+        # Set dynamic unit based on meter type
+        if entity_description.unit_fn:
+            self._attr_native_unit_of_measurement = entity_description.unit_fn(
+                meter_data
+            )
 
     @property
     def native_value(self) -> Any:
