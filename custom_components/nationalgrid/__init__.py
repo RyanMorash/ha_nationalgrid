@@ -70,7 +70,10 @@ async def async_unload_entry(
     entry: NationalGridConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        await entry.runtime_data.client.close()
+    return unload_ok
 
 
 async def async_reload_entry(

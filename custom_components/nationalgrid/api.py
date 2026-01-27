@@ -48,9 +48,17 @@ class NationalGridApiClient:
         """Initialize the API client."""
         self._config = NationalGridConfig(username=username, password=password)
         self._client = NationalGridClient(config=self._config, session=session)
+        self._context_entered = False
+
+    async def async_init(self) -> None:
+        """Initialize the client by entering the async context."""
+        if not self._context_entered:
+            await self._client.__aenter__()
+            self._context_entered = True
 
     async def async_get_linked_accounts(self) -> list[AccountLink]:
         """Get all linked billing accounts."""
+        await self.async_init()
         try:
             return await self._client.get_linked_accounts()
         except InvalidAuthError as err:
@@ -65,6 +73,7 @@ class NationalGridApiClient:
 
     async def async_get_billing_account(self, account_number: str) -> BillingAccount:
         """Get billing account information."""
+        await self.async_init()
         try:
             return await self._client.get_billing_account(account_number)
         except InvalidAuthError as err:
@@ -84,6 +93,7 @@ class NationalGridApiClient:
         first: int = 12,
     ) -> list[EnergyUsage]:
         """Get historical energy usages."""
+        await self.async_init()
         try:
             return await self._client.get_energy_usages(
                 account_number=account_number,
@@ -107,6 +117,7 @@ class NationalGridApiClient:
         company_code: str,
     ) -> list[EnergyUsageCost]:
         """Get energy usage costs."""
+        await self.async_init()
         try:
             return await self._client.get_energy_usage_costs(
                 account_number=account_number,
@@ -130,6 +141,7 @@ class NationalGridApiClient:
         start_datetime: str,
     ) -> list[IntervalRead]:
         """Get smart meter interval reads."""
+        await self.async_init()
         try:
             return await self._client.get_interval_reads(
                 premise_number=premise_number,
@@ -148,4 +160,6 @@ class NationalGridApiClient:
 
     async def close(self) -> None:
         """Close the client session."""
-        await self._client.close()
+        if self._context_entered:
+            await self._client.__aexit__(None, None, None)
+            self._context_entered = False
