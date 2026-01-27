@@ -17,6 +17,7 @@ from .api import NationalGridApiClient
 from .const import DOMAIN, LOGGER
 from .coordinator import NationalGridDataUpdateCoordinator
 from .data import NationalGridData
+from .statistics import async_import_statistics
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -56,6 +57,9 @@ async def async_setup_entry(
 
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
+
+    # Import historical data into long-term statistics
+    await async_import_statistics(hass, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

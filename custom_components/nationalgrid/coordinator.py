@@ -249,3 +249,45 @@ class NationalGridDataUpdateCoordinator(
 
         # Return most recent (highest month)
         return max(filtered, key=lambda c: c.get("month", 0))
+
+    def get_all_usages(
+        self, account_id: str, fuel_type: str | None = None
+    ) -> list[EnergyUsage]:
+        """Get all energy usages for an account, filtered by fuel type."""
+        if self.data is None:
+            return []
+        account_usages = self.data.usages.get(account_id, [])
+        if not account_usages:
+            return []
+
+        # Filter by fuel type if specified
+        if fuel_type:
+            usage_type_map = {
+                "Electric": "TOTAL_KWH",
+                "Gas": "THERMS",
+            }
+            usage_type = usage_type_map.get(fuel_type, fuel_type.upper())
+            return [u for u in account_usages if u.get("usageType") == usage_type]
+
+        return list(account_usages)
+
+    def get_all_costs(
+        self, account_id: str, fuel_type: str | None = None
+    ) -> list[EnergyUsageCost]:
+        """Get all energy costs for an account, filtered by fuel type."""
+        if self.data is None:
+            return []
+        account_costs = self.data.costs.get(account_id, [])
+        if not account_costs:
+            return []
+
+        # Filter by fuel type if specified
+        if fuel_type:
+            return [
+                c
+                for c in account_costs
+                if c.get("fuelType") == fuel_type
+                or c.get("fuelType") == fuel_type.upper()
+            ]
+
+        return list(account_costs)
