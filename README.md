@@ -72,4 +72,15 @@ The integration polls National Grid's API **every hour**. Each update fetches:
 - AMI (smart meter) energy usage data for meters that support it
 - Interval reads (15-minute granularity) for electric smart meters
 
-Historical usage and cost data are also imported as **long-term statistics** into Home Assistant's recorder, enabling the Energy dashboard and long-term trend analysis.
+### Long-Term Statistics
+
+The integration imports external statistics into Home Assistant's recorder on every update. These statistics can be used in the **Energy dashboard** and for long-term trend analysis.
+
+| Statistic ID | Description | Unit | Source Data |
+|--------------|-------------|------|-------------|
+| `national_grid:{service_point}_hourly_usage` | Hourly AMI usage | kWh (electric) / CCF (gas) | AMI smart meter readings |
+| `national_grid:{service_point}_interval_usage` | 15-minute interval usage (aggregated to hourly) | kWh | Electric interval reads |
+
+`{service_point}` is replaced with your meter's service point identifier (e.g. `SP1`).
+
+To add these to the Energy dashboard, go to **Settings > Dashboards > Energy** and select the relevant statistics under **Electricity grid** or **Gas consumption**.
