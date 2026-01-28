@@ -2,10 +2,10 @@
 
 Creates two external statistic series per electric meter and one per gas meter:
 
-- ``nationalgrid:{service_point}_hourly_usage`` — daily AMI readings (electric kWh,
-  gas CCF converted from therms) imported as hourly statistics.
-- ``nationalgrid:{service_point}_interval_usage`` — 15-minute interval reads
-  (electric only, kWh) bucketed into hourly totals.
+- ``national_grid:{service_point}_{fuel}_hourly_usage`` — daily AMI readings
+  (electric kWh, gas CCF converted from therms) imported as hourly statistics.
+- ``national_grid:{service_point}_electric_interval_usage`` — 15-minute interval
+  reads (electric only, kWh) bucketed into hourly totals.
 
 Statistics are imported incrementally: on each coordinator update, only readings
 newer than the last imported timestamp are appended. Cumulative sums are carried
@@ -79,7 +79,8 @@ async def _import_hourly_stats(
     Gas quantities are converted to CCF. Readings are sorted chronologically and
     only those newer than the last imported statistic are appended.
     """
-    statistic_id = f"{DOMAIN}:{service_point}_hourly_usage"
+    fuel = "gas" if is_gas else "electric"
+    statistic_id = f"{DOMAIN}:{service_point}_{fuel}_hourly_usage"
     unit = "CCF" if is_gas else UnitOfEnergy.KILO_WATT_HOUR
 
     # Get last imported sum to continue cumulative total.
@@ -141,7 +142,7 @@ async def _import_hourly_stats(
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
-        name=f"{service_point} Hourly Usage",
+        name=f"{service_point} {fuel.title()} Hourly Usage",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=unit,
@@ -167,7 +168,7 @@ async def _import_interval_stats(
     hourly timestamps. Reads are aggregated (summed) into hourly buckets before
     import. Only available for electric meters.
     """
-    statistic_id = f"{DOMAIN}:{service_point}_interval_usage"
+    statistic_id = f"{DOMAIN}:{service_point}_electric_interval_usage"
 
     last = await get_instance(hass).async_add_executor_job(
         partial(
@@ -228,7 +229,7 @@ async def _import_interval_stats(
     metadata = StatisticMetaData(
         has_mean=False,
         has_sum=True,
-        name=f"{service_point} Interval Usage",
+        name=f"{service_point} Electric Interval Usage",
         source=DOMAIN,
         statistic_id=statistic_id,
         unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,

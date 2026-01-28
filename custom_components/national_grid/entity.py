@@ -46,7 +46,11 @@ class NationalGridEntity(CoordinatorEntity[NationalGridDataUpdateCoordinator]):
 
         meter_number = meter.get("meterNumber", "") or self._service_point_number
         fuel_type = meter.get("fuelType", "")
-        name = f"{fuel_type.title()} Meter" if fuel_type else f"Meter {self._service_point_number}"
+        name = (
+            f"{fuel_type.title()} Meter"
+            if fuel_type
+            else f"Meter {self._service_point_number}"
+        )
 
         return DeviceInfo(
             identifiers={(DOMAIN, self._service_point_number)},

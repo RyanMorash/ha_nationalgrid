@@ -78,8 +78,9 @@ The integration imports external statistics into Home Assistant's recorder on ev
 
 | Statistic ID | Description | Unit | Source Data |
 |--------------|-------------|------|-------------|
-| `national_grid:{service_point}_hourly_usage` | Hourly AMI usage | kWh (electric) / CCF (gas) | AMI smart meter readings |
-| `national_grid:{service_point}_interval_usage` | 15-minute interval usage (aggregated to hourly) | kWh | Electric interval reads |
+| `national_grid:{service_point}_electric_hourly_usage` | Electric hourly AMI usage | kWh | AMI smart meter readings |
+| `national_grid:{service_point}_gas_hourly_usage` | Gas hourly AMI usage | CCF | AMI smart meter readings |
+| `national_grid:{service_point}_electric_interval_usage` | Electric 15-minute interval usage (aggregated to hourly) | kWh | Electric interval reads |
 
 `{service_point}` is replaced with your meter's service point identifier (e.g. `SP1`).
 

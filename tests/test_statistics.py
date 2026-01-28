@@ -64,7 +64,7 @@ async def test_import_hourly_stats(mock_get_instance, mock_add_stats, hass) -> N
     assert mock_add_stats.called
     metadata = mock_add_stats.call_args[0][1]
     stats = mock_add_stats.call_args[0][2]
-    assert metadata["statistic_id"] == "national_grid:SP1_hourly_usage"
+    assert metadata["statistic_id"] == "national_grid:SP1_electric_hourly_usage"
     assert len(stats) == 2
     assert stats[0]["state"] == 5.0
     assert stats[1]["sum"] == 8.0
@@ -137,7 +137,7 @@ async def test_import_hourly_stats_with_existing_sum(
     """Test hourly stats continues from last imported sum."""
     # Return existing statistics with a sum and timestamp
     existing = {
-        "national_grid:SP1_hourly_usage": [
+        "national_grid:SP1_electric_hourly_usage": [
             {"sum": 10.0, "start": 1736935200.0}  # 2025-01-15T10:00:00 UTC
         ]
     }
@@ -207,7 +207,7 @@ async def test_import_interval_stats_with_existing_sum(
 ) -> None:
     """Test interval stats continues from last imported sum."""
     existing = {
-        "national_grid:SP1_interval_usage": [
+        "national_grid:SP1_electric_interval_usage": [
             {"sum": 5.0, "start": 1736935200.0}  # 2025-01-15T10:00:00 UTC
         ]
     }
