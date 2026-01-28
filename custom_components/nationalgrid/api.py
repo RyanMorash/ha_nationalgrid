@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 from aionatgrid import NationalGridClient, NationalGridConfig
@@ -49,12 +50,15 @@ class NationalGridApiClient:
         # cookie jar configuration for Azure AD B2C authentication
         self._client = NationalGridClient(config=self._config)
         self._context_entered = False
+        self._init_lock = asyncio.Lock()
 
     async def async_init(self) -> None:
         """Initialize the client by entering the async context."""
         if not self._context_entered:
-            await self._client.__aenter__()
-            self._context_entered = True
+            async with self._init_lock:
+                if not self._context_entered:
+                    await self._client.__aenter__()
+                    self._context_entered = True
 
     async def async_get_linked_accounts(self) -> list[AccountLink]:
         """Get all linked billing accounts."""

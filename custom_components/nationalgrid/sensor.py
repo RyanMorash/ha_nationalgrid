@@ -86,7 +86,11 @@ def _get_usage_period(
         if year_month:
             year = year_month // 100
             month = year_month % 100
-            return f"{year}-{month:02d}"
+            min_year = 2000
+            max_year = 2100
+            max_month = 12
+            if min_year <= year <= max_year and 1 <= month <= max_month:
+                return f"{year}-{month:02d}"
     return None
 
 
