@@ -100,9 +100,13 @@ async def _import_hourly_stats(
         if not date_str:
             continue
 
-        # Parse date string to datetime at midnight UTC
+        # Parse date string (ISO 8601 format, e.g. "2026-01-22T15:00:00.000Z")
         try:
-            dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
+            dt = datetime.fromisoformat(date_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            # Truncate to top of hour for HA statistics
+            dt = dt.replace(minute=0, second=0, microsecond=0)
         except ValueError:
             LOGGER.debug("Could not parse AMI date: %s", date_str)
             continue
