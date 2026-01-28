@@ -15,12 +15,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.nationalgrid.const import (
+from custom_components.national_grid.const import (
     _LOGGER,
     CONF_SELECTED_ACCOUNTS,
     DOMAIN,
 )
-from custom_components.nationalgrid.coordinator import (
+from custom_components.national_grid.coordinator import (
     NationalGridDataUpdateCoordinator,
 )
 
@@ -41,10 +41,10 @@ def _make_coordinator(
     """Create a coordinator with a mock API client and config entry."""
     with (
         patch(
-            "custom_components.nationalgrid.coordinator.async_create_clientsession",
+            "custom_components.national_grid.coordinator.async_create_clientsession",
         ),
         patch(
-            "custom_components.nationalgrid.coordinator.NationalGridClient",
+            "custom_components.national_grid.coordinator.NationalGridClient",
             return_value=api_mock,
         ),
     ):

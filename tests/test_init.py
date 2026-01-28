@@ -11,7 +11,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.nationalgrid.const import CONF_SELECTED_ACCOUNTS, DOMAIN
+from custom_components.national_grid.const import CONF_SELECTED_ACCOUNTS, DOMAIN
 
 from .conftest import (
     MOCK_ACCOUNT_ID,
@@ -24,8 +24,8 @@ from .conftest import (
     _mock_usages,
 )
 
-PATCH_CLIENT = "custom_components.nationalgrid.coordinator.NationalGridClient"
-PATCH_SESSION = "custom_components.nationalgrid.coordinator.async_create_clientsession"
+PATCH_CLIENT = "custom_components.national_grid.coordinator.NationalGridClient"
+PATCH_SESSION = "custom_components.national_grid.coordinator.async_create_clientsession"
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ async def test_setup_entry(hass: HomeAssistant, config_entry) -> None:
         patch(PATCH_CLIENT, return_value=_make_api_mock()),
         patch(PATCH_SESSION),
         patch(
-            "custom_components.nationalgrid.async_import_all_statistics",
+            "custom_components.national_grid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):
@@ -78,7 +78,7 @@ async def test_unload_entry(hass: HomeAssistant, config_entry) -> None:
         patch(PATCH_CLIENT, return_value=_make_api_mock()),
         patch(PATCH_SESSION),
         patch(
-            "custom_components.nationalgrid.async_import_all_statistics",
+            "custom_components.national_grid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):
@@ -103,7 +103,7 @@ async def test_setup_entry_auth_error(hass: HomeAssistant, config_entry) -> None
         patch(PATCH_CLIENT, return_value=api),
         patch(PATCH_SESSION),
         patch(
-            "custom_components.nationalgrid.async_import_all_statistics",
+            "custom_components.national_grid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):

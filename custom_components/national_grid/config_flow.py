@@ -1,4 +1,4 @@
-"""Add config flow for nationalgrid."""
+"""Add config flow for national_grid."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .const import _LOGGER, CONF_SELECTED_ACCOUNTS, DOMAIN
 
 
 class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for nationalgrid."""
+    """Config flow for national_grid."""
 
     VERSION = 1
 

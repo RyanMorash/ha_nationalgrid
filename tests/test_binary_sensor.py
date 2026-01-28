@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from custom_components.nationalgrid.binary_sensor import (
+from custom_components.national_grid.binary_sensor import (
     PARALLEL_UPDATES,
     _has_smart_meter,
 )
-from custom_components.nationalgrid.coordinator import MeterData
+from custom_components.national_grid.coordinator import MeterData
 
 
 def _make_meter_data(has_ami: bool) -> MeterData:

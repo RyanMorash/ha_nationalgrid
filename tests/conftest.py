@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
-from custom_components.nationalgrid.const import CONF_SELECTED_ACCOUNTS, DOMAIN
+from custom_components.national_grid.const import CONF_SELECTED_ACCOUNTS, DOMAIN
 
 MOCK_USERNAME = "testuser@example.com"
 MOCK_PASSWORD = "testpassword123"

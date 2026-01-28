@@ -1,4 +1,4 @@
-"""Binary sensor platform for nationalgrid."""
+"""Binary sensor platform for national_grid."""
 
 from __future__ import annotations
 

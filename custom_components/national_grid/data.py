@@ -1,4 +1,4 @@
-"""Custom types for nationalgrid."""
+"""Custom types for national_grid."""
 
 from __future__ import annotations
 

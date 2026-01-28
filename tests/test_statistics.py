@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from custom_components.nationalgrid.const import therms_to_ccf
-from custom_components.nationalgrid.coordinator import (
+from custom_components.national_grid.const import therms_to_ccf
+from custom_components.national_grid.coordinator import (
     MeterData,
     NationalGridCoordinatorData,
 )
-from custom_components.nationalgrid.statistics import async_import_all_statistics
+from custom_components.national_grid.statistics import async_import_all_statistics
 
 
 def _make_coordinator_data(
@@ -44,8 +44,8 @@ async def test_import_all_statistics_no_data(hass) -> None:
     await async_import_all_statistics(hass, coordinator)
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_hourly_stats(mock_get_instance, mock_add_stats, hass) -> None:
     """Test hourly stats import for electric meter."""
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
@@ -64,14 +64,14 @@ async def test_import_hourly_stats(mock_get_instance, mock_add_stats, hass) -> N
     assert mock_add_stats.called
     metadata = mock_add_stats.call_args[0][1]
     stats = mock_add_stats.call_args[0][2]
-    assert metadata["statistic_id"] == "nationalgrid:SP1_hourly_usage"
+    assert metadata["statistic_id"] == "national_grid:SP1_hourly_usage"
     assert len(stats) == 2
     assert stats[0]["state"] == 5.0
     assert stats[1]["sum"] == 8.0
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_hourly_stats_gas_converts_therms(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
@@ -91,8 +91,8 @@ async def test_import_hourly_stats_gas_converts_therms(
     assert stats[0]["state"] == therms_to_ccf(10.0)
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats(mock_get_instance, mock_add_stats, hass) -> None:
     """Test interval reads are bucketed into hourly totals."""
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
@@ -114,8 +114,8 @@ async def test_import_interval_stats(mock_get_instance, mock_add_stats, hass) ->
     assert stats[1]["state"] == 0.50
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats_skips_empty(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
@@ -129,15 +129,15 @@ async def test_import_interval_stats_skips_empty(
     assert not mock_add_stats.called
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_hourly_stats_with_existing_sum(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test hourly stats continues from last imported sum."""
     # Return existing statistics with a sum and timestamp
     existing = {
-        "nationalgrid:SP1_hourly_usage": [
+        "national_grid:SP1_hourly_usage": [
             {"sum": 10.0, "start": 1736935200.0}  # 2025-01-15T10:00:00 UTC
         ]
     }
@@ -162,8 +162,8 @@ async def test_import_hourly_stats_with_existing_sum(
     assert stats[0]["sum"] == 13.0  # 10.0 + 3.0
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_hourly_stats_skips_empty_date(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
@@ -181,8 +181,8 @@ async def test_import_hourly_stats_skips_empty_date(
     assert not mock_add_stats.called
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_hourly_stats_skips_bad_date(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
@@ -200,14 +200,14 @@ async def test_import_hourly_stats_skips_bad_date(
     assert not mock_add_stats.called
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats_with_existing_sum(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats continues from last imported sum."""
     existing = {
-        "nationalgrid:SP1_interval_usage": [
+        "national_grid:SP1_interval_usage": [
             {"sum": 5.0, "start": 1736935200.0}  # 2025-01-15T10:00:00 UTC
         ]
     }
@@ -229,8 +229,8 @@ async def test_import_interval_stats_with_existing_sum(
     assert stats[0]["sum"] == 5.5
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats_skips_bad_time(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
@@ -245,8 +245,8 @@ async def test_import_interval_stats_skips_bad_time(
     assert not mock_add_stats.called
 
 
-@patch("custom_components.nationalgrid.statistics.async_add_external_statistics")
-@patch("custom_components.nationalgrid.statistics.get_instance")
+@patch("custom_components.national_grid.statistics.async_add_external_statistics")
+@patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats_skips_empty_starttime(
     mock_get_instance, mock_add_stats, hass
 ) -> None:

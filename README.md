@@ -17,8 +17,8 @@ This integration polls your National Grid account once per hour and creates sens
 
 ### Manual Installation
 
-1. Download the `custom_components/nationalgrid` folder from this repository.
-2. Copy the `nationalgrid` folder into your Home Assistant `config/custom_components/` directory.
+1. Download the `custom_components/national_grid` folder from this repository.
+2. Copy the `national_grid` folder into your Home Assistant `config/custom_components/` directory.
 3. Restart Home Assistant.
 
 ## Configuration
@@ -43,7 +43,7 @@ Configuration is done entirely through the Home Assistant UI.
 1. Go to **Settings > Devices & Services**.
 2. Find the **National Grid** integration entry.
 3. Click the three-dot menu and select **Delete**.
-4. Optionally, remove the `custom_components/nationalgrid` folder and restart Home Assistant.
+4. Optionally, remove the `custom_components/national_grid` folder and restart Home Assistant.
 
 ## Entities
 

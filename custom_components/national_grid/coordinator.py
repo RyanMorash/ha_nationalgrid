@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator for nationalgrid."""
+"""DataUpdateCoordinator for national_grid."""
 
 from __future__ import annotations
 

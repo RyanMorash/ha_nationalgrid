@@ -9,4 +9,4 @@ homeassistant:
 logger:
   default: info
   logs:
-    custom_components.nationalgrid: debug
+    custom_components.national_grid: debug

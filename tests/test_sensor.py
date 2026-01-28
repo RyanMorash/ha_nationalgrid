@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 from homeassistant.components.sensor import SensorDeviceClass
 
-from custom_components.nationalgrid.const import UNIT_CCF, UNIT_KWH
-from custom_components.nationalgrid.coordinator import MeterData
-from custom_components.nationalgrid.sensor import (
+from custom_components.national_grid.const import UNIT_CCF, UNIT_KWH
+from custom_components.national_grid.coordinator import MeterData
+from custom_components.national_grid.sensor import (
     PARALLEL_UPDATES,
     _get_energy_cost,
     _get_energy_device_class,
@@ -55,7 +55,7 @@ def test_energy_usage_gas_converts() -> None:
     coordinator = MagicMock()
     coordinator.get_latest_usage.return_value = {"usage": 10.0, "usageType": "THERMS"}
     result = _get_energy_usage(coordinator, meter_data)
-    from custom_components.nationalgrid.const import therms_to_ccf
+    from custom_components.national_grid.const import therms_to_ccf
 
     assert result == therms_to_ccf(10.0)
 

@@ -1,5 +1,5 @@
 {
-  "domain": "nationalgrid",
+  "domain": "national_grid",
   "name": "National Grid",
   "codeowners": ["@ryanmorash"],
   "config_flow": true,
