@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from custom_components.nationalgrid.const import therms_to_ccf
 from custom_components.nationalgrid.coordinator import (
     MeterData,
@@ -267,7 +265,9 @@ async def test_import_all_statistics_skips_missing_meter(hass) -> None:
     """Test AMI usages for unknown service points are skipped."""
     coordinator = MagicMock()
     coordinator.data = _make_coordinator_data(
-        ami_usages={"SP_UNKNOWN": [{"date": "2025-01-15T10:00:00.000Z", "quantity": 5.0}]},
+        ami_usages={
+            "SP_UNKNOWN": [{"date": "2025-01-15T10:00:00.000Z", "quantity": 5.0}]
+        },
         meters={},  # no meters
     )
     # Should not raise

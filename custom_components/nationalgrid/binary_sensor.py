@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, kw_only=True)
 class NationalGridBinarySensorEntityDescription(BinarySensorEntityDescription):
-    """Describes National Grid binary sensor entity."""
+    """Describe National Grid binary sensor entity."""
 
     value_fn: Callable[[MeterData], bool | None]
 
@@ -60,7 +60,7 @@ async def async_setup_entry(
 
     entities: list[NationalGridBinarySensor] = []
 
-    # Create binary sensors for each meter
+    # Create binary sensors for each meter.
     if coordinator.data:
         for service_point_number in coordinator.data.meters:
             entities.extend(

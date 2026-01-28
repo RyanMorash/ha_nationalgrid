@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from aionatgrid.exceptions import (
@@ -131,7 +131,9 @@ async def test_async_get_billing_account_auth_error(mock_ng_client) -> None:
 
 async def test_async_get_billing_account_communication_error(mock_ng_client) -> None:
     """Test billing account communication error."""
-    mock_ng_client.get_billing_account = AsyncMock(side_effect=CannotConnectError("down"))
+    mock_ng_client.get_billing_account = AsyncMock(
+        side_effect=CannotConnectError("down")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientCommunicationError):
         await client.async_get_billing_account("acct1")
@@ -139,7 +141,9 @@ async def test_async_get_billing_account_communication_error(mock_ng_client) -> 
 
 async def test_async_get_billing_account_generic_error(mock_ng_client) -> None:
     """Test billing account generic error."""
-    mock_ng_client.get_billing_account = AsyncMock(side_effect=NationalGridError("oops"))
+    mock_ng_client.get_billing_account = AsyncMock(
+        side_effect=NationalGridError("oops")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientError):
         await client.async_get_billing_account("acct1")
@@ -171,7 +175,9 @@ async def test_async_get_energy_usages_generic_error(mock_ng_client) -> None:
 
 async def test_async_get_energy_usage_costs_auth_error(mock_ng_client) -> None:
     """Test energy usage costs auth error."""
-    mock_ng_client.get_energy_usage_costs = AsyncMock(side_effect=InvalidAuthError("bad"))
+    mock_ng_client.get_energy_usage_costs = AsyncMock(
+        side_effect=InvalidAuthError("bad")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientAuthenticationError):
         await client.async_get_energy_usage_costs("acct1", "2025-01-01", "KEDNY")
@@ -179,7 +185,9 @@ async def test_async_get_energy_usage_costs_auth_error(mock_ng_client) -> None:
 
 async def test_async_get_energy_usage_costs_communication_error(mock_ng_client) -> None:
     """Test energy usage costs communication error."""
-    mock_ng_client.get_energy_usage_costs = AsyncMock(side_effect=CannotConnectError("down"))
+    mock_ng_client.get_energy_usage_costs = AsyncMock(
+        side_effect=CannotConnectError("down")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientCommunicationError):
         await client.async_get_energy_usage_costs("acct1", "2025-01-01", "KEDNY")
@@ -187,7 +195,9 @@ async def test_async_get_energy_usage_costs_communication_error(mock_ng_client) 
 
 async def test_async_get_energy_usage_costs_generic_error(mock_ng_client) -> None:
     """Test energy usage costs generic error (includes ValueError)."""
-    mock_ng_client.get_energy_usage_costs = AsyncMock(side_effect=NationalGridError("oops"))
+    mock_ng_client.get_energy_usage_costs = AsyncMock(
+        side_effect=NationalGridError("oops")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientError):
         await client.async_get_energy_usage_costs("acct1", "2025-01-01", "KEDNY")
@@ -195,7 +205,9 @@ async def test_async_get_energy_usage_costs_generic_error(mock_ng_client) -> Non
 
 async def test_async_get_energy_usage_costs_value_error(mock_ng_client) -> None:
     """Test energy usage costs ValueError maps to generic error."""
-    mock_ng_client.get_energy_usage_costs = AsyncMock(side_effect=ValueError("bad date"))
+    mock_ng_client.get_energy_usage_costs = AsyncMock(
+        side_effect=ValueError("bad date")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientError):
         await client.async_get_energy_usage_costs("acct1", "2025-01-01", "KEDNY")
@@ -211,7 +223,9 @@ async def test_async_get_interval_reads_auth_error(mock_ng_client) -> None:
 
 async def test_async_get_interval_reads_communication_error(mock_ng_client) -> None:
     """Test interval reads communication error."""
-    mock_ng_client.get_interval_reads = AsyncMock(side_effect=CannotConnectError("down"))
+    mock_ng_client.get_interval_reads = AsyncMock(
+        side_effect=CannotConnectError("down")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientCommunicationError):
         await client.async_get_interval_reads("PREM1", "SP1", "2025-01-01T00:00")
@@ -227,37 +241,52 @@ async def test_async_get_interval_reads_generic_error(mock_ng_client) -> None:
 
 async def test_async_get_ami_energy_usages_auth_error(mock_ng_client) -> None:
     """Test AMI energy usages auth error."""
-    mock_ng_client.get_ami_energy_usages = AsyncMock(side_effect=InvalidAuthError("bad"))
+    mock_ng_client.get_ami_energy_usages = AsyncMock(
+        side_effect=InvalidAuthError("bad")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientAuthenticationError):
         await client.async_get_ami_energy_usages(
-            meter_number="MTR1", premise_number="PREM1",
-            service_point_number="SP1", meter_point_number="MPT1",
-            date_from=date(2025, 1, 1), date_to=date(2025, 1, 2),
+            meter_number="MTR1",
+            premise_number="PREM1",
+            service_point_number="SP1",
+            meter_point_number="MPT1",
+            date_from=date(2025, 1, 1),
+            date_to=date(2025, 1, 2),
         )
 
 
 async def test_async_get_ami_energy_usages_communication_error(mock_ng_client) -> None:
     """Test AMI energy usages communication error."""
-    mock_ng_client.get_ami_energy_usages = AsyncMock(side_effect=CannotConnectError("down"))
+    mock_ng_client.get_ami_energy_usages = AsyncMock(
+        side_effect=CannotConnectError("down")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientCommunicationError):
         await client.async_get_ami_energy_usages(
-            meter_number="MTR1", premise_number="PREM1",
-            service_point_number="SP1", meter_point_number="MPT1",
-            date_from=date(2025, 1, 1), date_to=date(2025, 1, 2),
+            meter_number="MTR1",
+            premise_number="PREM1",
+            service_point_number="SP1",
+            meter_point_number="MPT1",
+            date_from=date(2025, 1, 1),
+            date_to=date(2025, 1, 2),
         )
 
 
 async def test_async_get_ami_energy_usages_generic_error(mock_ng_client) -> None:
     """Test AMI energy usages generic error."""
-    mock_ng_client.get_ami_energy_usages = AsyncMock(side_effect=NationalGridError("oops"))
+    mock_ng_client.get_ami_energy_usages = AsyncMock(
+        side_effect=NationalGridError("oops")
+    )
     client = _make_api_client()
     with pytest.raises(NationalGridApiClientError):
         await client.async_get_ami_energy_usages(
-            meter_number="MTR1", premise_number="PREM1",
-            service_point_number="SP1", meter_point_number="MPT1",
-            date_from=date(2025, 1, 1), date_to=date(2025, 1, 2),
+            meter_number="MTR1",
+            premise_number="PREM1",
+            service_point_number="SP1",
+            meter_point_number="MPT1",
+            date_from=date(2025, 1, 1),
+            date_to=date(2025, 1, 2),
         )
 
 

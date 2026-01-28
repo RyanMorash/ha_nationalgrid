@@ -1,5 +1,4 @@
-"""
-Import AMI energy data into Home Assistant long-term statistics.
+"""Import AMI energy data into Home Assistant long-term statistics.
 
 Creates two external statistic series per electric meter and one per gas meter:
 
@@ -30,7 +29,7 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.const import UnitOfEnergy
 
-from .const import DOMAIN, LOGGER, therms_to_ccf
+from .const import _LOGGER, DOMAIN, therms_to_ccf
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -42,8 +41,7 @@ async def async_import_all_statistics(
     hass: HomeAssistant,
     coordinator: NationalGridDataUpdateCoordinator,
 ) -> None:
-    """
-    Import AMI hourly and interval read statistics.
+    """Import AMI hourly and interval read statistics.
 
     Called after the first coordinator refresh and on each subsequent update.
     Iterates all AMI meters and electric interval reads, delegating to the
@@ -60,10 +58,10 @@ async def async_import_all_statistics(
         fuel_type = str(meter_data.meter.get("fuelType", ""))
         is_gas = fuel_type == "Gas"
 
-        # Import hourly AMI stats as external statistics
+        # Import hourly AMI stats as external statistics.
         await _import_hourly_stats(hass, sp, ami_readings, is_gas=is_gas)
 
-    # Import interval read stats (electric only)
+    # Import interval read stats (electric only).
     for sp, reads in data.interval_reads.items():
         await _import_interval_stats(hass, sp, reads)
 
@@ -75,8 +73,7 @@ async def _import_hourly_stats(
     *,
     is_gas: bool,
 ) -> None:
-    """
-    Import hourly AMI usage statistics as external statistics.
+    """Import hourly AMI usage statistics as external statistics.
 
     Each AMI reading has a date and quantity (in therms for gas, kWh for electric).
     Gas quantities are converted to CCF. Readings are sorted chronologically and
@@ -85,7 +82,7 @@ async def _import_hourly_stats(
     statistic_id = f"{DOMAIN}:{service_point}_hourly_usage"
     unit = "CCF" if is_gas else UnitOfEnergy.KILO_WATT_HOUR
 
-    # Get last imported sum to continue cumulative total
+    # Get last imported sum to continue cumulative total.
     last = await get_instance(hass).async_add_executor_job(
         partial(
             get_last_statistics,
@@ -103,7 +100,7 @@ async def _import_hourly_stats(
         last_sum = row.get("sum") or 0.0
         last_ts = row.get("start") or 0.0
 
-    # Sort readings by date and filter to new ones only
+    # Sort readings by date and filter to new ones only.
     sorted_readings = sorted(readings, key=lambda r: str(r.get("date", "")))
     stats: list[StatisticData] = []
     running_sum = last_sum
@@ -114,15 +111,15 @@ async def _import_hourly_stats(
         if not date_str:
             continue
 
-        # Parse date string (ISO 8601 format, e.g. "2026-01-22T15:00:00.000Z")
+        # Parse date string (ISO 8601 format, e.g. "2026-01-22T15:00:00.000Z").
         try:
             dt = datetime.fromisoformat(date_str)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
-            # Truncate to top of hour for HA statistics
+            # Truncate to top of hour for HA statistics.
             dt = dt.replace(minute=0, second=0, microsecond=0)
         except ValueError:
-            LOGGER.debug("Could not parse AMI date: %s", date_str)
+            _LOGGER.debug("Could not parse AMI date: %s", date_str)
             continue
 
         if dt.timestamp() <= last_ts:
@@ -151,7 +148,7 @@ async def _import_hourly_stats(
     )
 
     async_add_external_statistics(hass, metadata, stats)
-    LOGGER.debug(
+    _LOGGER.debug(
         "Imported %s hourly stats for %s (sum=%.3f)",
         len(stats),
         statistic_id,
@@ -164,8 +161,7 @@ async def _import_interval_stats(
     service_point: str,
     reads: list,
 ) -> None:
-    """
-    Import 15-minute interval read statistics for a service point.
+    """Import 15-minute interval read statistics for a service point.
 
     Interval reads arrive at 15-minute granularity but HA statistics require
     hourly timestamps. Reads are aggregated (summed) into hourly buckets before
@@ -190,7 +186,7 @@ async def _import_interval_stats(
         last_sum = row.get("sum") or 0.0
         last_ts = row.get("start") or 0.0
 
-    # Bucket interval reads by hour (HA requires top-of-hour timestamps)
+    # Bucket interval reads by hour (HA requires top-of-hour timestamps).
     hourly_buckets: dict[datetime, float] = {}
     for read in reads:
         start_str = str(read.get("startTime", ""))
@@ -203,7 +199,7 @@ async def _import_interval_stats(
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
         except ValueError:
-            LOGGER.debug("Could not parse interval startTime: %s", start_str)
+            _LOGGER.debug("Could not parse interval startTime: %s", start_str)
             continue
 
         hour_start = dt.replace(minute=0, second=0, microsecond=0)
@@ -239,7 +235,7 @@ async def _import_interval_stats(
     )
 
     async_add_external_statistics(hass, metadata, stats)
-    LOGGER.debug(
+    _LOGGER.debug(
         "Imported %s interval stats for %s (sum=%.3f)",
         len(stats),
         service_point,

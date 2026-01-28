@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
 
 from custom_components.nationalgrid.const import CONF_SELECTED_ACCOUNTS, DOMAIN
 
@@ -20,8 +19,8 @@ MOCK_SERVICE_POINT_2 = "SP002"
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(
-    recorder_mock: None,  # noqa: ARG001
-    enable_custom_integrations: None,  # noqa: ARG001
+    recorder_mock: None,
+    enable_custom_integrations: None,
 ) -> None:
     """Enable custom integrations and recorder in Home Assistant."""
 

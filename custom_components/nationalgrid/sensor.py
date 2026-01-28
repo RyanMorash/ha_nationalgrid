@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
-from .const import DOMAIN, LOGGER, UNIT_CCF, UNIT_KWH, therms_to_ccf
+from .const import _LOGGER, DOMAIN, UNIT_CCF, UNIT_KWH, therms_to_ccf
 from .entity import NationalGridEntity
 
 PARALLEL_UPDATES = 1
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, kw_only=True)
 class NationalGridSensorEntityDescription(SensorEntityDescription):
-    """Describes National Grid sensor entity."""
+    """Describe National Grid sensor entity."""
 
     value_fn: Callable[[NationalGridDataUpdateCoordinator, MeterData], Any]
     unit_fn: Callable[[MeterData], str | None] | None = None
@@ -42,7 +42,7 @@ def _get_energy_usage(
     """Get the latest energy usage for a meter."""
     fuel_type = meter_data.meter.get("fuelType")
     usage = coordinator.get_latest_usage(meter_data.account_id, fuel_type)
-    LOGGER.debug(
+    _LOGGER.debug(
         "Getting usage for account=%s, fuel_type=%s: %s",
         meter_data.account_id,
         fuel_type,
@@ -85,20 +85,20 @@ def _get_energy_device_class(meter_data: MeterData) -> SensorDeviceClass | None:
 
 SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
-        key="energy_usage",
-        translation_key="energy_usage",
-        name="Last Billing Usage",
-        value_fn=_get_energy_usage,
-        unit_fn=_get_energy_unit,
-        device_class_fn=_get_energy_device_class,
-    ),
-    NationalGridSensorEntityDescription(
         key="energy_cost",
         translation_key="energy_cost",
         name="Last Billing Cost",
         native_unit_of_measurement="$",
         device_class=SensorDeviceClass.MONETARY,
         value_fn=_get_energy_cost,
+    ),
+    NationalGridSensorEntityDescription(
+        key="energy_usage",
+        translation_key="energy_usage",
+        name="Last Billing Usage",
+        value_fn=_get_energy_usage,
+        unit_fn=_get_energy_unit,
+        device_class_fn=_get_energy_device_class,
     ),
 )
 
@@ -113,7 +113,7 @@ async def async_setup_entry(
 
     entities: list[NationalGridSensor] = []
 
-    # Create sensors for each meter
+    # Create sensors for each meter.
     if coordinator.data:
         for service_point_number, meter_data in coordinator.data.meters.items():
             entities.extend(
@@ -148,12 +148,12 @@ class NationalGridSensor(NationalGridEntity, SensorEntity):
         self._attr_unique_id = (
             f"{DOMAIN}_{service_point_number}_{entity_description.key}"
         )
-        # Set dynamic unit based on meter type
+        # Set dynamic unit based on meter type.
         if entity_description.unit_fn:
             self._attr_native_unit_of_measurement = entity_description.unit_fn(
                 meter_data
             )
-        # Set dynamic device class based on meter type
+        # Set dynamic device class based on meter type.
         if entity_description.device_class_fn:
             self._attr_device_class = entity_description.device_class_fn(meter_data)
 

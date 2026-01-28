@@ -1,5 +1,4 @@
-"""
-Custom integration to integrate National Grid with Home Assistant.
+"""Custom integration to integrate National Grid with Home Assistant.
 
 For more details about this integration, please refer to
 https://github.com/ryanmorash/ha_nationalgrid
@@ -13,7 +12,7 @@ from typing import TYPE_CHECKING
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 
 from .api import NationalGridApiClient
-from .const import DOMAIN, LOGGER
+from .const import _LOGGER, DOMAIN
 from .coordinator import NationalGridDataUpdateCoordinator
 from .data import NationalGridData
 from .statistics import async_import_all_statistics
@@ -24,8 +23,8 @@ if TYPE_CHECKING:
     from .data import NationalGridConfigEntry
 
 PLATFORMS: list[Platform] = [
-    Platform.SENSOR,
     Platform.BINARY_SENSOR,
+    Platform.SENSOR,
 ]
 
 
@@ -41,7 +40,7 @@ async def async_setup_entry(
 
     coordinator = NationalGridDataUpdateCoordinator(
         hass=hass,
-        logger=LOGGER,
+        logger=_LOGGER,
         name=DOMAIN,
         update_interval=timedelta(hours=1),
         client=client,
@@ -58,7 +57,7 @@ async def async_setup_entry(
         await async_import_all_statistics(hass, coordinator)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-        # Re-import statistics on each coordinator update
+        # Re-import statistics on each coordinator update.
         async def _on_update() -> None:
             await async_import_all_statistics(hass, coordinator)
 

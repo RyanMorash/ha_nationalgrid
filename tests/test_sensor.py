@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from homeassistant.components.sensor import SensorDeviceClass
 
+from custom_components.nationalgrid.const import UNIT_CCF, UNIT_KWH
 from custom_components.nationalgrid.coordinator import MeterData
 from custom_components.nationalgrid.sensor import (
     PARALLEL_UPDATES,
@@ -14,14 +15,19 @@ from custom_components.nationalgrid.sensor import (
     _get_energy_unit,
     _get_energy_usage,
 )
-from custom_components.nationalgrid.const import UNIT_CCF, UNIT_KWH
 
 
-def _make_meter_data(fuel_type: str = "Electric", account_id: str = "acct1") -> MeterData:
+def _make_meter_data(
+    fuel_type: str = "Electric", account_id: str = "acct1"
+) -> MeterData:
     """Create a MeterData with a given fuel type."""
     return MeterData(
         account_id=account_id,
-        meter={"fuelType": fuel_type, "servicePointNumber": "SP1", "hasAmiSmartMeter": True},
+        meter={
+            "fuelType": fuel_type,
+            "servicePointNumber": "SP1",
+            "hasAmiSmartMeter": True,
+        },
         billing_account={"billingAccountId": account_id},
     )
 
@@ -35,7 +41,10 @@ def test_energy_usage_electric() -> None:
     """Test usage value for electric meter."""
     meter_data = _make_meter_data("Electric")
     coordinator = MagicMock()
-    coordinator.get_latest_usage.return_value = {"usage": 500.0, "usageType": "TOTAL_KWH"}
+    coordinator.get_latest_usage.return_value = {
+        "usage": 500.0,
+        "usageType": "TOTAL_KWH",
+    }
     result = _get_energy_usage(coordinator, meter_data)
     assert result == 500.0
 
@@ -47,6 +56,7 @@ def test_energy_usage_gas_converts() -> None:
     coordinator.get_latest_usage.return_value = {"usage": 10.0, "usageType": "THERMS"}
     result = _get_energy_usage(coordinator, meter_data)
     from custom_components.nationalgrid.const import therms_to_ccf
+
     assert result == therms_to_ccf(10.0)
 
 

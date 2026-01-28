@@ -50,7 +50,7 @@ class NationalGridApiClient:
         """Initialize the API client."""
         self._config = NationalGridConfig(username=username, password=password)
         # Don't pass a session - let the library create its own with proper
-        # cookie jar configuration for Azure AD B2C authentication
+        # cookie jar configuration for Azure AD B2C authentication.
         self._client = NationalGridClient(config=self._config)
         self._exit_stack = AsyncExitStack()
         self._context_entered = False

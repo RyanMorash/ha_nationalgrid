@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
-
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.nationalgrid.api import (
@@ -17,9 +16,9 @@ from custom_components.nationalgrid.api import (
     NationalGridApiClientError,
 )
 from custom_components.nationalgrid.const import (
+    _LOGGER,
     CONF_SELECTED_ACCOUNTS,
     DOMAIN,
-    LOGGER,
 )
 from custom_components.nationalgrid.coordinator import (
     NationalGridDataUpdateCoordinator,
@@ -28,7 +27,6 @@ from custom_components.nationalgrid.coordinator import (
 from .conftest import (
     MOCK_ACCOUNT_ID,
     MOCK_SERVICE_POINT,
-    MOCK_SERVICE_POINT_2,
     _mock_ami_usages,
     _mock_billing_account,
     _mock_costs,
@@ -43,7 +41,7 @@ def _make_coordinator(
     """Create a coordinator with a mock client and config entry."""
     coordinator = NationalGridDataUpdateCoordinator(
         hass=hass,
-        logger=LOGGER,
+        logger=_LOGGER,
         name=DOMAIN,
         update_interval=timedelta(hours=1),
         client=client,

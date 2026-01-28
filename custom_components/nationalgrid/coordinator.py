@@ -14,7 +14,7 @@ from .api import (
     NationalGridApiClientAuthenticationError,
     NationalGridApiClientError,
 )
-from .const import CONF_SELECTED_ACCOUNTS, LOGGER
+from .const import _LOGGER, CONF_SELECTED_ACCOUNTS
 
 if TYPE_CHECKING:
     import logging
@@ -46,11 +46,11 @@ class NationalGridCoordinatorData:
     """Data returned by the coordinator."""
 
     accounts: dict[str, BillingAccount]
-    meters: dict[str, MeterData]
-    usages: dict[str, list[EnergyUsage]]
-    costs: dict[str, list[EnergyUsageCost]]
     ami_usages: dict[str, list[AmiEnergyUsage]] = field(default_factory=dict)
+    costs: dict[str, list[EnergyUsageCost]] = field(default_factory=dict)
     interval_reads: dict[str, list[IntervalRead]] = field(default_factory=dict)
+    meters: dict[str, MeterData] = field(default_factory=dict)
+    usages: dict[str, list[EnergyUsage]] = field(default_factory=dict)
 
 
 class NationalGridDataUpdateCoordinator(
@@ -81,12 +81,12 @@ class NationalGridDataUpdateCoordinator(
             raise ConfigEntryAuthFailed(exception) from exception
         except NationalGridApiClientError as exception:
             if self._last_update_success:
-                LOGGER.warning("National Grid service unavailable: %s", exception)
+                _LOGGER.warning("National Grid service unavailable: %s", exception)
             self._last_update_success = False
             raise UpdateFailed(exception) from exception
 
         if not self._last_update_success:
-            LOGGER.info("National Grid service recovered")
+            _LOGGER.info("National Grid service recovered")
         self._last_update_success = True
         return data
 
@@ -97,9 +97,9 @@ class NationalGridDataUpdateCoordinator(
             CONF_SELECTED_ACCOUNTS, []
         )
 
-        LOGGER.debug("Fetching data for accounts: %s", selected_accounts)
+        _LOGGER.debug("Fetching data for accounts: %s", selected_accounts)
 
-        # Seed from previous data to preserve stale data on per-account errors
+        # Seed from previous data to preserve stale data on per-account errors.
         prev = self.data
         accounts: dict[str, BillingAccount] = dict(prev.accounts) if prev else {}
         meters: dict[str, MeterData] = dict(prev.meters) if prev else {}
@@ -112,25 +112,25 @@ class NationalGridDataUpdateCoordinator(
             dict(prev.interval_reads) if prev else {}
         )
 
-        # Calculate from_month for usage query (12 months back)
+        # Calculate from_month for usage query (12 months back).
         today = datetime.now(tz=UTC).date()
         from_month = (today.year - 1) * 100 + today.month
-        LOGGER.debug("Fetching usages from month: %s", from_month)
+        _LOGGER.debug("Fetching usages from month: %s", from_month)
 
         for account_id in selected_accounts:
             try:
-                # Fetch billing account info
-                LOGGER.debug("Fetching billing account: %s", account_id)
+                # Fetch billing account info.
+                _LOGGER.debug("Fetching billing account: %s", account_id)
                 billing_account = await client.async_get_billing_account(account_id)
                 accounts[account_id] = billing_account
-                LOGGER.debug(
+                _LOGGER.debug(
                     "Billing account %s: region=%s, meters=%s",
                     account_id,
                     billing_account.get("region"),
                     len(billing_account.get("meter", {}).get("nodes", [])),
                 )
 
-                # Extract meters from the billing account
+                # Extract meters from the billing account.
                 meter_nodes = billing_account.get("meter", {}).get("nodes", [])
                 for meter in meter_nodes:
                     service_point = str(meter.get("servicePointNumber", ""))
@@ -140,13 +140,13 @@ class NationalGridDataUpdateCoordinator(
                             account_id=account_id,
                             billing_account=billing_account,
                         )
-                        LOGGER.debug(
+                        _LOGGER.debug(
                             "Found meter: service_point=%s, fuel_type=%s",
                             service_point,
                             meter.get("fuelType"),
                         )
 
-                # Fetch energy usages
+                # Fetch energy usages.
                 try:
                     account_usages = await client.async_get_energy_usages(
                         account_number=account_id,
@@ -154,21 +154,21 @@ class NationalGridDataUpdateCoordinator(
                         first=12,
                     )
                     usages[account_id] = account_usages
-                    LOGGER.debug(
+                    _LOGGER.debug(
                         "Fetched %s usage records for account %s, types: %s",
                         len(account_usages),
                         account_id,
                         {u.get("usageType") for u in account_usages},
                     )
                 except NationalGridApiClientError as err:
-                    LOGGER.debug(
+                    _LOGGER.debug(
                         "Could not fetch energy usages for account %s: %s",
                         account_id,
                         err,
                     )
                     usages[account_id] = []
 
-                # Fetch energy costs (company_code is the region from billing account)
+                # Fetch energy costs (company_code is the region from billing account).
                 try:
                     region = billing_account.get("region", "")
                     if region:
@@ -178,25 +178,25 @@ class NationalGridDataUpdateCoordinator(
                             company_code=region,
                         )
                         costs[account_id] = account_costs
-                        LOGGER.debug(
+                        _LOGGER.debug(
                             "Fetched %s cost records for account %s",
                             len(account_costs),
                             account_id,
                         )
                     else:
-                        LOGGER.debug(
+                        _LOGGER.debug(
                             "No region for account %s, skipping costs", account_id
                         )
                         costs[account_id] = []
                 except NationalGridApiClientError as err:
-                    LOGGER.debug(
+                    _LOGGER.debug(
                         "Could not fetch energy costs for account %s: %s",
                         account_id,
                         err,
                     )
                     costs[account_id] = []
 
-                # Fetch AMI energy usages for AMI-capable meters
+                # Fetch AMI energy usages for AMI-capable meters.
                 await self._fetch_ami_data(
                     billing_account,
                     meter_nodes,
@@ -206,15 +206,15 @@ class NationalGridDataUpdateCoordinator(
                 )
 
             except NationalGridApiClientAuthenticationError:
-                # Re-raise auth errors to trigger reauth flow
+                # Re-raise auth errors to trigger reauth flow.
                 raise
             except NationalGridApiClientError as err:
-                LOGGER.warning(
+                _LOGGER.warning(
                     "Error fetching data for account %s: %s", account_id, err
                 )
                 continue
 
-        LOGGER.debug(
+        _LOGGER.debug(
             "Fetch complete: %s accounts, %s meters, %s usage records, "
             "%s cost records, %s AMI usage records, %s interval reads",
             len(accounts),
@@ -263,19 +263,19 @@ class NationalGridDataUpdateCoordinator(
                     date_to=date_to,
                 )
                 ami_usages[sp] = ami_data
-                LOGGER.debug(
+                _LOGGER.debug(
                     "Fetched %s AMI usage records for meter %s",
                     len(ami_data),
                     sp,
                 )
             except NationalGridApiClientError as err:
-                LOGGER.debug(
+                _LOGGER.debug(
                     "Could not fetch AMI usages for meter %s: %s",
                     sp,
                     err,
                 )
 
-            # Fetch interval reads for electric meters only
+            # Fetch interval reads for electric meters only.
             fuel_type = str(meter.get("fuelType", ""))
             if fuel_type == "Gas":
                 continue
@@ -288,13 +288,13 @@ class NationalGridDataUpdateCoordinator(
                     start_datetime=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
                 )
                 interval_reads[sp] = reads
-                LOGGER.debug(
+                _LOGGER.debug(
                     "Fetched %s interval reads for meter %s",
                     len(reads),
                     sp,
                 )
             except NationalGridApiClientError as err:
-                LOGGER.debug(
+                _LOGGER.debug(
                     "Could not fetch interval reads for meter %s: %s",
                     sp,
                     err,
@@ -316,8 +316,8 @@ class NationalGridDataUpdateCoordinator(
         if not account_usages:
             return None
 
-        # Filter by fuel type if specified
-        # Map meter fuel type to usage type: Electric->KWH, Gas->THERMS
+        # Filter by fuel type if specified.
+        # Map meter fuel type to usage type: Electric->KWH, Gas->THERMS.
         filtered = account_usages
         if fuel_type:
             usage_type_map = {
@@ -326,7 +326,7 @@ class NationalGridDataUpdateCoordinator(
             }
             usage_type = usage_type_map.get(fuel_type, fuel_type.upper())
             filtered = [u for u in account_usages if u.get("usageType") == usage_type]
-            LOGGER.debug(
+            _LOGGER.debug(
                 "Filtering usages: fuel_type=%s -> usage_type=%s, found %s matches",
                 fuel_type,
                 usage_type,
@@ -336,7 +336,7 @@ class NationalGridDataUpdateCoordinator(
         if not filtered:
             return None
 
-        # Return most recent (highest usageYearMonth)
+        # Return most recent (highest usageYearMonth).
         return max(filtered, key=lambda u: u.get("usageYearMonth", 0))
 
     def get_latest_cost(
@@ -349,11 +349,11 @@ class NationalGridDataUpdateCoordinator(
         if not account_costs:
             return None
 
-        # Filter by fuel type if specified
-        # Cost records use fuelType field which may be "ELECTRIC" or "GAS" (uppercase)
+        # Filter by fuel type if specified.
+        # Cost records use fuelType field which may be "ELECTRIC" or "GAS" (uppercase).
         filtered = account_costs
         if fuel_type:
-            # Try exact match first, then uppercase match
+            # Try exact match first, then uppercase match.
             filtered = [
                 c
                 for c in account_costs
@@ -364,7 +364,7 @@ class NationalGridDataUpdateCoordinator(
         if not filtered:
             return None
 
-        # Return most recent (highest month)
+        # Return most recent (highest month).
         return max(filtered, key=lambda c: c.get("month", 0))
 
     def get_all_usages(
@@ -377,7 +377,7 @@ class NationalGridDataUpdateCoordinator(
         if not account_usages:
             return []
 
-        # Filter by fuel type if specified
+        # Filter by fuel type if specified.
         if fuel_type:
             usage_type_map = {
                 "Electric": "TOTAL_KWH",
@@ -398,7 +398,7 @@ class NationalGridDataUpdateCoordinator(
         if not account_costs:
             return []
 
-        # Filter by fuel type if specified
+        # Filter by fuel type if specified.
         if fuel_type:
             return [
                 c

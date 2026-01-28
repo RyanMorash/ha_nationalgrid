@@ -1,4 +1,4 @@
-"""Adds config flow for nationalgrid."""
+"""Add config flow for nationalgrid."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from .api import (
     NationalGridApiClientCommunicationError,
     NationalGridApiClientError,
 )
-from .const import CONF_SELECTED_ACCOUNTS, DOMAIN, LOGGER
+from .const import _LOGGER, CONF_SELECTED_ACCOUNTS, DOMAIN
 
 
 class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -46,20 +46,20 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     password=self._password,
                 )
             except NationalGridApiClientAuthenticationError as exception:
-                LOGGER.warning(exception)
+                _LOGGER.warning(exception)
                 _errors["base"] = "auth"
             except NationalGridApiClientCommunicationError as exception:
-                LOGGER.error(exception)
+                _LOGGER.error(exception)
                 _errors["base"] = "connection"
             except NationalGridApiClientError as exception:
-                LOGGER.exception(exception)
+                _LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
                 await self.async_set_unique_id(slugify(self._username))
                 self._abort_if_unique_id_configured()
 
                 if len(self._accounts) == 1:
-                    # Single account - skip selection and auto-select
+                    # Single account - skip selection and auto-select.
                     return self.async_create_entry(
                         title=self._username,
                         data={
@@ -70,7 +70,7 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             ],
                         },
                     )
-                # Multiple accounts - proceed to selection step
+                # Multiple accounts - proceed to selection step.
                 return await self.async_step_select_accounts()
 
         return self.async_show_form(
@@ -147,13 +147,13 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     password=password,
                 )
             except NationalGridApiClientAuthenticationError as exception:
-                LOGGER.warning(exception)
+                _LOGGER.warning(exception)
                 _errors["base"] = "auth"
             except NationalGridApiClientCommunicationError as exception:
-                LOGGER.error(exception)
+                _LOGGER.error(exception)
                 _errors["base"] = "connection"
             except NationalGridApiClientError as exception:
-                LOGGER.exception(exception)
+                _LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
                 reauth_entry = self._get_reauth_entry()
@@ -220,7 +220,7 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
         try:
             accounts = await client.async_get_linked_accounts()
-            # Convert to plain dicts for storage
+            # Convert to plain dicts for storage.
             return [dict(account) for account in accounts]
         finally:
             await client.close()

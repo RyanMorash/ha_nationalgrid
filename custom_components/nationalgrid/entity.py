@@ -43,10 +43,10 @@ class NationalGridEntity(CoordinatorEntity[NationalGridDataUpdateCoordinator]):
 
         meter: Meter = meter_data.meter
 
-        # Get meter number for the device name
+        # Get meter number for the device name.
         meter_number = meter.get("meterNumber", "") or self._service_point_number
 
-        # Determine meter model based on fuel type
+        # Determine meter model based on fuel type.
         fuel_type = meter.get("fuelType", "")
         model = f"{fuel_type.title()} Meter" if fuel_type else "Meter"
 

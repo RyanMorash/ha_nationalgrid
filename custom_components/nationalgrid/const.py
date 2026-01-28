@@ -2,19 +2,19 @@
 
 from logging import Logger, getLogger
 
-LOGGER: Logger = getLogger(__package__)
+_LOGGER: Logger = getLogger(__package__)
 
 DOMAIN = "nationalgrid"
 ATTRIBUTION = "Data provided by National Grid"
 
-# Config entry data keys
+# Config entry data keys.
 CONF_SELECTED_ACCOUNTS = "selected_accounts"
 
-# Unit constants
-UNIT_KWH = "kWh"
+# Unit constants.
 UNIT_CCF = "CCF"
+UNIT_KWH = "kWh"
 
-# Conversion factor: 1 therm = 1.038 CCF
+# Conversion factor: 1 therm = 1.038 CCF.
 THERM_TO_CCF = 1.038
 
 
