@@ -43,6 +43,12 @@
             },
             "usage_period": {
                 "name": "Usage Period"
+            },
+            "ami_daily_usage": {
+                "name": "AMI Daily Usage"
+            },
+            "ami_latest_reading": {
+                "name": "AMI Latest Reading"
             }
         },
         "binary_sensor": {

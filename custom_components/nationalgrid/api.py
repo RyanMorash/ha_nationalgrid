@@ -11,6 +11,7 @@ from aionatgrid.exceptions import (
     CannotConnectError,
     InvalidAuthError,
     NationalGridError,
+    RetryExhaustedError,
 )
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 
     from aionatgrid.models import (
         AccountLink,
+        AmiEnergyUsage,
         BillingAccount,
         EnergyUsage,
         EnergyUsageCost,
@@ -70,7 +72,7 @@ class NationalGridApiClient:
         except InvalidAuthError as err:
             msg = "Invalid credentials"
             raise NationalGridApiClientAuthenticationError(msg) from err
-        except CannotConnectError as err:
+        except (CannotConnectError, RetryExhaustedError) as err:
             msg = f"Unable to connect to National Grid: {err}"
             raise NationalGridApiClientCommunicationError(msg) from err
         except NationalGridError as err:
@@ -85,7 +87,7 @@ class NationalGridApiClient:
         except InvalidAuthError as err:
             msg = "Invalid credentials"
             raise NationalGridApiClientAuthenticationError(msg) from err
-        except CannotConnectError as err:
+        except (CannotConnectError, RetryExhaustedError) as err:
             msg = f"Unable to connect to National Grid: {err}"
             raise NationalGridApiClientCommunicationError(msg) from err
         except NationalGridError as err:
@@ -109,7 +111,7 @@ class NationalGridApiClient:
         except InvalidAuthError as err:
             msg = "Invalid credentials"
             raise NationalGridApiClientAuthenticationError(msg) from err
-        except CannotConnectError as err:
+        except (CannotConnectError, RetryExhaustedError) as err:
             msg = f"Unable to connect to National Grid: {err}"
             raise NationalGridApiClientCommunicationError(msg) from err
         except NationalGridError as err:
@@ -133,7 +135,7 @@ class NationalGridApiClient:
         except InvalidAuthError as err:
             msg = "Invalid credentials"
             raise NationalGridApiClientAuthenticationError(msg) from err
-        except CannotConnectError as err:
+        except (CannotConnectError, RetryExhaustedError) as err:
             msg = f"Unable to connect to National Grid: {err}"
             raise NationalGridApiClientCommunicationError(msg) from err
         except (NationalGridError, ValueError) as err:
@@ -157,11 +159,41 @@ class NationalGridApiClient:
         except InvalidAuthError as err:
             msg = "Invalid credentials"
             raise NationalGridApiClientAuthenticationError(msg) from err
-        except CannotConnectError as err:
+        except (CannotConnectError, RetryExhaustedError) as err:
             msg = f"Unable to connect to National Grid: {err}"
             raise NationalGridApiClientCommunicationError(msg) from err
         except NationalGridError as err:
             msg = f"Error fetching interval reads: {err}"
+            raise NationalGridApiClientError(msg) from err
+
+    async def async_get_ami_energy_usages(  # noqa: PLR0913
+        self,
+        meter_number: str,
+        premise_number: str,
+        service_point_number: str,
+        meter_point_number: str,
+        date_from: date,
+        date_to: date,
+    ) -> list[AmiEnergyUsage]:
+        """Get AMI smart meter energy usages."""
+        await self.async_init()
+        try:
+            return await self._client.get_ami_energy_usages(
+                meter_number=meter_number,
+                premise_number=premise_number,
+                service_point_number=service_point_number,
+                meter_point_number=meter_point_number,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        except InvalidAuthError as err:
+            msg = "Invalid credentials"
+            raise NationalGridApiClientAuthenticationError(msg) from err
+        except (CannotConnectError, RetryExhaustedError) as err:
+            msg = f"Unable to connect to National Grid: {err}"
+            raise NationalGridApiClientCommunicationError(msg) from err
+        except NationalGridError as err:
+            msg = f"Error fetching AMI energy usages: {err}"
             raise NationalGridApiClientError(msg) from err
 
     async def close(self) -> None:

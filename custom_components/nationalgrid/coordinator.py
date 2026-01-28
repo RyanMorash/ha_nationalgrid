@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     import logging
 
     from aionatgrid.models import (
+        AmiEnergyUsage,
         BillingAccount,
         EnergyUsage,
         EnergyUsageCost,
@@ -47,6 +48,7 @@ class NationalGridCoordinatorData:
     meters: dict[str, MeterData]
     usages: dict[str, list[EnergyUsage]]
     costs: dict[str, list[EnergyUsageCost]]
+    ami_usages: dict[str, list[AmiEnergyUsage]] = field(default_factory=dict)
 
 
 class NationalGridDataUpdateCoordinator(
@@ -92,6 +94,9 @@ class NationalGridDataUpdateCoordinator(
         meters: dict[str, MeterData] = dict(prev.meters) if prev else {}
         usages: dict[str, list[EnergyUsage]] = dict(prev.usages) if prev else {}
         costs: dict[str, list[EnergyUsageCost]] = dict(prev.costs) if prev else {}
+        ami_usages: dict[str, list[AmiEnergyUsage]] = (
+            dict(prev.ami_usages) if prev else {}
+        )
 
         # Calculate from_month for usage query (12 months back)
         today = datetime.now(tz=UTC).date()
@@ -177,6 +182,11 @@ class NationalGridDataUpdateCoordinator(
                     )
                     costs[account_id] = []
 
+                # Fetch AMI energy usages for AMI-capable meters
+                await self._fetch_ami_data(
+                    client, billing_account, meter_nodes, today, ami_usages
+                )
+
             except NationalGridApiClientAuthenticationError:
                 # Re-raise auth errors to trigger reauth flow
                 raise
@@ -187,11 +197,13 @@ class NationalGridDataUpdateCoordinator(
                 continue
 
         LOGGER.debug(
-            "Fetch complete: %s accounts, %s meters, %s usage records, %s cost records",
+            "Fetch complete: %s accounts, %s meters, %s usage records, "
+            "%s cost records, %s AMI usage records",
             len(accounts),
             len(meters),
             sum(len(u) for u in usages.values()),
             sum(len(c) for c in costs.values()),
+            sum(len(a) for a in ami_usages.values()),
         )
 
         return NationalGridCoordinatorData(
@@ -199,7 +211,48 @@ class NationalGridDataUpdateCoordinator(
             meters=meters,
             usages=usages,
             costs=costs,
+            ami_usages=ami_usages,
         )
+
+    async def _fetch_ami_data(
+        self,
+        client: NationalGridApiClient,
+        billing_account: BillingAccount,
+        meter_nodes: list[Meter],
+        today: date,
+        ami_usages: dict[str, list[AmiEnergyUsage]],
+    ) -> None:
+        """Fetch AMI energy usages for AMI-capable meters."""
+        premise_number = billing_account.get("premiseNumber", "")
+        for meter in meter_nodes:
+            if not meter.get("hasAmiSmartMeter"):
+                continue
+            sp = str(meter.get("servicePointNumber", ""))
+            if not sp:
+                continue
+            try:
+                date_to = today - timedelta(days=3)
+                date_from = today - timedelta(days=10)
+                ami_data = await client.async_get_ami_energy_usages(
+                    meter_number=str(meter.get("meterNumber", "")),
+                    premise_number=premise_number,
+                    service_point_number=sp,
+                    meter_point_number=str(meter.get("meterPointNumber", "")),
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+                ami_usages[sp] = ami_data
+                LOGGER.debug(
+                    "Fetched %s AMI usage records for meter %s",
+                    len(ami_data),
+                    sp,
+                )
+            except NationalGridApiClientError as err:
+                LOGGER.debug(
+                    "Could not fetch AMI usages for meter %s: %s",
+                    sp,
+                    err,
+                )
 
     def get_meter_data(self, service_point_number: str) -> MeterData | None:
         """Get meter data by service point number."""
@@ -309,3 +362,26 @@ class NationalGridDataUpdateCoordinator(
             ]
 
         return list(account_costs)
+
+    def get_latest_ami_usage(self, service_point_number: str) -> AmiEnergyUsage | None:
+        """Get the most recent AMI usage reading for a service point."""
+        if self.data is None:
+            return None
+        readings = self.data.ami_usages.get(service_point_number, [])
+        if not readings:
+            return None
+        return max(readings, key=lambda r: r.get("date", ""))
+
+    def get_ami_daily_total(self, service_point_number: str) -> float | None:
+        """Get the total usage for the most recent AMI day."""
+        latest = self.get_latest_ami_usage(service_point_number)
+        if latest is None:
+            return None
+        latest_date = latest.get("date", "")
+        if not latest_date:
+            return None
+        readings = (
+            self.data.ami_usages.get(service_point_number, []) if self.data else []
+        )
+        day_readings = [r for r in readings if r.get("date") == latest_date]
+        return round(sum(r.get("quantity", 0) for r in day_readings), 2)
