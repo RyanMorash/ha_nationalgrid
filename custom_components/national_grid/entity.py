@@ -37,24 +37,22 @@ class NationalGridEntity(CoordinatorEntity[NationalGridDataUpdateCoordinator]):
         if meter_data is None:
             return DeviceInfo(
                 identifiers={(DOMAIN, self._service_point_number)},
+                serial_number=self._service_point_number,
                 name=f"Meter {self._service_point_number}",
                 manufacturer="National Grid",
             )
 
         meter: Meter = meter_data.meter
 
-        # Get meter number for the device name.
         meter_number = meter.get("meterNumber", "") or self._service_point_number
-
-        # Determine meter model based on fuel type.
         fuel_type = meter.get("fuelType", "")
-        model = f"{fuel_type.title()} Meter" if fuel_type else "Meter"
+        name = f"{fuel_type.title()} Meter" if fuel_type else f"Meter {self._service_point_number}"
 
         return DeviceInfo(
             identifiers={(DOMAIN, self._service_point_number)},
-            name=meter_number,
+            serial_number=meter_number,
+            name=name,
             manufacturer="National Grid",
-            model=model,
             configuration_url="https://myaccount.nationalgrid.com",
         )
 
