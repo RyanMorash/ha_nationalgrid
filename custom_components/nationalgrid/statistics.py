@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 from homeassistant.components.recorder.models import StatisticData, StatisticMetaData
@@ -56,8 +57,15 @@ async def _import_hourly_stats(
     unit = UnitOfVolume.CUBIC_FEET if is_gas else UnitOfEnergy.KILO_WATT_HOUR
 
     # Get last imported sum to continue cumulative total
-    last = await get_last_statistics(
-        hass, 1, statistic_id, convert_units=True, types={"sum"}
+    last = await hass.async_add_executor_job(
+        partial(
+            get_last_statistics,
+            hass,
+            1,
+            statistic_id,
+            convert_units=True,
+            types={"sum"},
+        )
     )
     last_sum = 0.0
     last_ts = 0.0
@@ -125,8 +133,15 @@ async def _import_interval_stats(
     """Import 15-minute interval read statistics for a service point."""
     statistic_id = f"{DOMAIN}:{service_point}_interval_usage"
 
-    last = await get_last_statistics(
-        hass, 1, statistic_id, convert_units=True, types={"sum"}
+    last = await hass.async_add_executor_job(
+        partial(
+            get_last_statistics,
+            hass,
+            1,
+            statistic_id,
+            convert_units=True,
+            types={"sum"},
+        )
     )
     last_sum = 0.0
     last_ts = 0.0
