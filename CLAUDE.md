@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Home Assistant custom integration for National Grid, based on the `ludeeus/integration_blueprint` template. It uses HACS for distribution and requires Home Assistant 2025.2.4+.
+This is a Home Assistant custom integration for National Grid, based on the `ludeeus/integration_blueprint` template. It uses the [`aionatgrid`](https://github.com/ryanmorash/aionatgrid) Python library to access data from National Grid. It uses HACS for distribution and requires Home Assistant 2025.2.4+.
 
 ## Development Commands
 
@@ -50,7 +50,8 @@ The integration follows the standard Home Assistant custom component pattern:
 
 ## Documentation Reference
 
-When looking up Home Assistant developer documentation, use Context7 with the library ID `/home-assistant/developers.home-assistant`.
+- When looking up Home Assistant developer documentation, use Context7 with the library ID `/home-assistant/developers.home-assistant`.
+- When looking up `aionatgrid` library documentation, use Context7 with the library ID `/ryanmorash/aionatgrid`.
 
 ## Code Style
 
