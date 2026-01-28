@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aionatgrid.exceptions import (
@@ -23,11 +23,17 @@ from custom_components.nationalgrid.api import (
 
 @pytest.fixture
 def mock_ng_client():
-    """Patch the underlying aionatgrid client."""
-    with patch(
-        "custom_components.nationalgrid.api.NationalGridClient",
-        autospec=True,
-    ) as mock_cls:
+    """Patch the underlying aionatgrid client and session."""
+    with (
+        patch(
+            "custom_components.nationalgrid.api.NationalGridClient",
+            autospec=True,
+        ) as mock_cls,
+        patch(
+            "custom_components.nationalgrid.api.aiohttp.ClientSession",
+            return_value=MagicMock(),
+        ),
+    ):
         instance = mock_cls.return_value
         # Make the async context manager work
         instance.__aenter__ = AsyncMock(return_value=instance)

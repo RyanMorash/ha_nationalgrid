@@ -7,7 +7,8 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from aionatgrid import NationalGridClient, NationalGridConfig
+import aiohttp
+from aionatgrid import NationalGridClient, NationalGridConfig, create_cookie_jar
 from aionatgrid.exceptions import (
     CannotConnectError,
     InvalidAuthError,
@@ -60,9 +61,11 @@ class NationalGridApiClient:
     ) -> None:
         """Initialize the API client."""
         self._config = NationalGridConfig(username=username, password=password)
-        # Don't pass a session - let the library create its own with proper
-        # cookie jar configuration for Azure AD B2C authentication.
-        self._client = NationalGridClient(config=self._config)
+        # Pass a session with a cookie jar configured for Azure AD B2C.
+        # The library's _ensure_session creates sessions without cookie jars,
+        # but B2C auth requires quote_cookie=False for OIDC cookie handling.
+        self._session = aiohttp.ClientSession(cookie_jar=create_cookie_jar())
+        self._client = NationalGridClient(config=self._config, session=self._session)
         self._exit_stack = AsyncExitStack()
         self._context_entered = False
         self._init_lock = asyncio.Lock()
@@ -209,3 +212,5 @@ class NationalGridApiClient:
         if self._context_entered:
             await self._exit_stack.aclose()
             self._context_entered = False
+        if self._session and not self._session.closed:
+            await self._session.close()
