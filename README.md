@@ -1,46 +1,75 @@
-# Notice
+# National Grid Integration for Home Assistant
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+A custom [Home Assistant](https://www.home-assistant.io/) integration that provides energy usage, cost, and meter data from [National Grid](https://www.nationalgridus.com/) utility accounts. It uses the [aionatgrid](https://github.com/ryanmorash/aionatgrid) library to communicate with National Grid's API.
 
-HAVE FUN! 😎
+This integration polls your National Grid account once per hour and creates sensor and binary sensor entities for each meter linked to your account, giving you visibility into your electricity and gas billing data directly in Home Assistant.
 
-## Why?
+## Installation
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+### HACS (Recommended)
 
-If you are a developer and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+1. Open HACS in your Home Assistant instance.
+2. Go to **Integrations** and select the three-dot menu in the top right corner.
+3. Select **Custom repositories**.
+4. Add the URL `https://github.com/ryanmorash/ha_nationalgrid` with category **Integration**.
+5. Find **National Grid** in the HACS integration list and click **Download**.
+6. Restart Home Assistant.
 
-## What?
+### Manual Installation
 
-This repository contains multiple files, here is a overview:
+1. Download the `custom_components/nationalgrid` folder from this repository.
+2. Copy the `nationalgrid` folder into your Home Assistant `config/custom_components/` directory.
+3. Restart Home Assistant.
 
-File | Purpose | Documentation
--- | -- | --
-`.devcontainer.json` | Used for development/testing with Visual Studio Code. | [Documentation](https://code.visualstudio.com/docs/remote/containers)
-`.github/ISSUE_TEMPLATE/*.yml` | Templates for the issue tracker | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository)
-`custom_components/integration_blueprint/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
-`CONTRIBUTING.md` | Guidelines on how to contribute. | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)
-`LICENSE` | The license file for the project. | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)
-`README.md` | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)
-`requirements.txt` | Python packages used for development/lint/testing this integration. | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
+## Configuration
 
-## How?
+Configuration is done entirely through the Home Assistant UI.
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-1. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-1. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-1. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-1. Run the `scripts/develop` to start HA and test out your new integration.
+1. Go to **Settings > Devices & Services > Add Integration**.
+2. Search for **National Grid**.
+3. Enter your National Grid account **username** and **password**.
+4. If your account has multiple billing accounts linked, select which accounts to monitor. If only one account is linked, it is selected automatically.
 
-## Next steps
+### Configuration Parameters
 
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon) to https://github.com/home-assistant/brands.
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+| Parameter | Description |
+|-----------|-------------|
+| Username  | Your National Grid online account email or username |
+| Password  | Your National Grid online account password |
+| Selected Accounts | Which linked billing accounts to monitor (shown only if multiple accounts exist) |
+
+## Removal
+
+1. Go to **Settings > Devices & Services**.
+2. Find the **National Grid** integration entry.
+3. Click the three-dot menu and select **Delete**.
+4. Optionally, remove the `custom_components/nationalgrid` folder and restart Home Assistant.
+
+## Entities
+
+The integration creates the following entities for each meter on your account:
+
+### Sensors
+
+| Entity | Description | Unit | Device Class |
+|--------|-------------|------|--------------|
+| Last Billing Usage | Most recent monthly billing usage | kWh (electric) / CCF (gas) | Energy / Gas |
+| Last Billing Cost | Most recent monthly billing cost | $ | Monetary |
+
+### Binary Sensors
+
+| Entity | Description | Category |
+|--------|-------------|----------|
+| Smart Meter | Whether the meter is an AMI smart meter | Diagnostic |
+
+## Data Updates
+
+The integration polls National Grid's API **every hour**. Each update fetches:
+
+- Billing account information and meter details
+- Energy usage records for the last 12 months
+- Energy cost records for the current billing period
+- AMI (smart meter) energy usage data for meters that support it
+- Interval reads (15-minute granularity) for electric smart meters
+
+Historical usage and cost data are also imported as **long-term statistics** into Home Assistant's recorder, enabling the Energy dashboard and long-term trend analysis.
