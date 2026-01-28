@@ -150,11 +150,9 @@ async def _import_interval_stats(
         last_sum = row.get("sum") or 0.0
         last_ts = row.get("start") or 0.0
 
-    sorted_reads = sorted(reads, key=lambda r: str(r.get("startTime", "")))
-    stats: list[StatisticData] = []
-    running_sum = last_sum
-
-    for read in sorted_reads:
+    # Bucket interval reads by hour (HA requires top-of-hour timestamps)
+    hourly_buckets: dict[datetime, float] = {}
+    for read in reads:
         start_str = str(read.get("startTime", ""))
         value = float(read.get("value", 0))
         if not start_str:
@@ -168,14 +166,22 @@ async def _import_interval_stats(
             LOGGER.debug("Could not parse interval startTime: %s", start_str)
             continue
 
-        if dt.timestamp() <= last_ts:
+        hour_start = dt.replace(minute=0, second=0, microsecond=0)
+        hourly_buckets[hour_start] = hourly_buckets.get(hour_start, 0.0) + value
+
+    stats: list[StatisticData] = []
+    running_sum = last_sum
+
+    for hour_start in sorted(hourly_buckets):
+        if hour_start.timestamp() <= last_ts:
             continue
 
-        running_sum += value
+        hour_total = hourly_buckets[hour_start]
+        running_sum += hour_total
         stats.append(
             StatisticData(
-                start=dt,
-                state=value,
+                start=hour_start,
+                state=hour_total,
                 sum=running_sum,
             )
         )
