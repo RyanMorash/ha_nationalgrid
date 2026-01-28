@@ -14,7 +14,7 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.const import UnitOfEnergy
 
-from .const import DOMAIN, LOGGER
+from .const import DOMAIN, LOGGER, therms_to_ccf
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -100,11 +100,12 @@ async def _import_hourly_stats(
         if dt.timestamp() <= last_ts:
             continue
 
-        running_sum += quantity
+        value = therms_to_ccf(quantity) if is_gas else quantity
+        running_sum += value
         stats.append(
             StatisticData(
                 start=dt,
-                state=quantity,
+                state=value,
                 sum=running_sum,
             )
         )

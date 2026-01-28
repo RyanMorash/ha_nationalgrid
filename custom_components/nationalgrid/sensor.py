@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
-from .const import DOMAIN, LOGGER
+from .const import DOMAIN, LOGGER, UNIT_CCF, UNIT_KWH, therms_to_ccf
 from .entity import NationalGridEntity
 
 if TYPE_CHECKING:
@@ -22,13 +22,6 @@ if TYPE_CHECKING:
 
     from .coordinator import MeterData, NationalGridDataUpdateCoordinator
     from .data import NationalGridConfigEntry
-
-# Unit constants
-UNIT_KWH = "kWh"
-UNIT_CCF = "CCF"
-
-# Conversion factor: 1 therm = 1.038 CCF
-THERM_TO_CCF = 1.038
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -56,8 +49,7 @@ def _get_energy_usage(
     if usage:
         value = usage.get("usage")
         if value is not None and fuel_type and fuel_type.upper() == "GAS":
-            # Convert therms to CCF
-            return round(value * THERM_TO_CCF, 2)
+            return therms_to_ccf(value)
         return value
     return None
 
