@@ -54,11 +54,15 @@ async def async_setup_entry(
         coordinator=coordinator,
     )
 
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        # Fetch initial data
+        await coordinator.async_config_entry_first_refresh()
 
-    # Import historical data into long-term statistics
-    await async_import_statistics(hass, coordinator)
+        # Import historical data into long-term statistics
+        await async_import_statistics(hass, coordinator)
+    except Exception:
+        await client.close()
+        raise
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

@@ -13,6 +13,13 @@
                 "data": {
                     "selected_accounts": "Billing Accounts"
                 }
+            },
+            "reauth_confirm": {
+                "description": "Please re-enter your National Grid credentials.",
+                "data": {
+                    "username": "Username",
+                    "password": "Password"
+                }
             }
         },
         "error": {
@@ -22,7 +29,8 @@
             "no_accounts_selected": "Please select at least one account."
         },
         "abort": {
-            "already_configured": "This account is already configured."
+            "already_configured": "This account is already configured.",
+            "reauth_successful": "Re-authentication successful."
         }
     },
     "entity": {
