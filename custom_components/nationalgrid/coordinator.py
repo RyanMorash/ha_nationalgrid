@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         BillingAccount,
         EnergyUsage,
         EnergyUsageCost,
+        IntervalRead,
         Meter,
     )
     from homeassistant.core import HomeAssistant
@@ -49,6 +50,7 @@ class NationalGridCoordinatorData:
     usages: dict[str, list[EnergyUsage]]
     costs: dict[str, list[EnergyUsageCost]]
     ami_usages: dict[str, list[AmiEnergyUsage]] = field(default_factory=dict)
+    interval_reads: dict[str, list[IntervalRead]] = field(default_factory=dict)
 
 
 class NationalGridDataUpdateCoordinator(
@@ -81,7 +83,7 @@ class NationalGridDataUpdateCoordinator(
 
         return data
 
-    async def _fetch_all_data(self) -> NationalGridCoordinatorData:
+    async def _fetch_all_data(self) -> NationalGridCoordinatorData:  # noqa: PLR0915
         """Fetch all data from the API."""
         client = self.client
         selected_accounts: list[str] = self.config_entry.data.get(
@@ -98,6 +100,9 @@ class NationalGridDataUpdateCoordinator(
         costs: dict[str, list[EnergyUsageCost]] = dict(prev.costs) if prev else {}
         ami_usages: dict[str, list[AmiEnergyUsage]] = (
             dict(prev.ami_usages) if prev else {}
+        )
+        interval_reads: dict[str, list[IntervalRead]] = (
+            dict(prev.interval_reads) if prev else {}
         )
 
         # Calculate from_month for usage query (12 months back)
@@ -186,7 +191,11 @@ class NationalGridDataUpdateCoordinator(
 
                 # Fetch AMI energy usages for AMI-capable meters
                 await self._fetch_ami_data(
-                    client, billing_account, meter_nodes, today, ami_usages
+                    billing_account,
+                    meter_nodes,
+                    today,
+                    ami_usages,
+                    interval_reads,
                 )
 
             except NationalGridApiClientAuthenticationError:
@@ -200,12 +209,13 @@ class NationalGridDataUpdateCoordinator(
 
         LOGGER.debug(
             "Fetch complete: %s accounts, %s meters, %s usage records, "
-            "%s cost records, %s AMI usage records",
+            "%s cost records, %s AMI usage records, %s interval reads",
             len(accounts),
             len(meters),
             sum(len(u) for u in usages.values()),
             sum(len(c) for c in costs.values()),
             sum(len(a) for a in ami_usages.values()),
+            sum(len(r) for r in interval_reads.values()),
         )
 
         return NationalGridCoordinatorData(
@@ -214,17 +224,19 @@ class NationalGridDataUpdateCoordinator(
             usages=usages,
             costs=costs,
             ami_usages=ami_usages,
+            interval_reads=interval_reads,
         )
 
     async def _fetch_ami_data(
         self,
-        client: NationalGridApiClient,
         billing_account: BillingAccount,
         meter_nodes: list[Meter],
         today: date,
         ami_usages: dict[str, list[AmiEnergyUsage]],
+        interval_reads: dict[str, list[IntervalRead]],
     ) -> None:
         """Fetch AMI energy usages for AMI-capable meters."""
+        client = self.client
         premise_number = billing_account.get("premiseNumber", "")
         for meter in meter_nodes:
             if not meter.get("hasAmiSmartMeter"):
@@ -252,6 +264,31 @@ class NationalGridDataUpdateCoordinator(
             except NationalGridApiClientError as err:
                 LOGGER.debug(
                     "Could not fetch AMI usages for meter %s: %s",
+                    sp,
+                    err,
+                )
+
+            # Fetch interval reads for electric meters only
+            fuel_type = str(meter.get("fuelType", ""))
+            if fuel_type == "Gas":
+                continue
+            try:
+                now = datetime.now(tz=UTC)
+                start_dt = now - timedelta(hours=24)
+                reads = await client.async_get_interval_reads(
+                    premise_number=premise_number,
+                    service_point_number=sp,
+                    start_datetime=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                )
+                interval_reads[sp] = reads
+                LOGGER.debug(
+                    "Fetched %s interval reads for meter %s",
+                    len(reads),
+                    sp,
+                )
+            except NationalGridApiClientError as err:
+                LOGGER.debug(
+                    "Could not fetch interval reads for meter %s: %s",
                     sp,
                     err,
                 )
