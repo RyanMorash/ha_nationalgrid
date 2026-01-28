@@ -5,17 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+from aionatgrid import NationalGridClient, NationalGridConfig, create_cookie_jar
+from aionatgrid.exceptions import (
+    CannotConnectError,
+    InvalidAuthError,
+    NationalGridError,
+)
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from slugify import slugify
 
-from .api import (
-    NationalGridApiClient,
-    NationalGridApiClientAuthenticationError,
-    NationalGridApiClientCommunicationError,
-    NationalGridApiClientError,
-)
 from .const import _LOGGER, CONF_SELECTED_ACCOUNTS, DOMAIN
 
 
@@ -45,13 +46,13 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     username=self._username,
                     password=self._password,
                 )
-            except NationalGridApiClientAuthenticationError as exception:
+            except InvalidAuthError as exception:
                 _LOGGER.warning(exception)
                 _errors["base"] = "auth"
-            except NationalGridApiClientCommunicationError as exception:
+            except CannotConnectError as exception:
                 _LOGGER.error(exception)
                 _errors["base"] = "connection"
-            except NationalGridApiClientError as exception:
+            except NationalGridError as exception:
                 _LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
@@ -146,13 +147,13 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     username=username,
                     password=password,
                 )
-            except NationalGridApiClientAuthenticationError as exception:
+            except InvalidAuthError as exception:
                 _LOGGER.warning(exception)
                 _errors["base"] = "auth"
-            except NationalGridApiClientCommunicationError as exception:
+            except CannotConnectError as exception:
                 _LOGGER.error(exception)
                 _errors["base"] = "connection"
-            except NationalGridApiClientError as exception:
+            except NationalGridError as exception:
                 _LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
@@ -214,13 +215,12 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, username: str, password: str
     ) -> list[dict[str, str]]:
         """Fetch linked accounts from the API."""
-        client = NationalGridApiClient(
-            username=username,
-            password=password,
+        session = async_create_clientsession(self.hass, cookie_jar=create_cookie_jar())
+        client = NationalGridClient(
+            config=NationalGridConfig(username=username, password=password),
+            session=session,
         )
-        try:
-            accounts = await client.async_get_linked_accounts()
+        async with client:
+            accounts = await client.get_linked_accounts()
             # Convert to plain dicts for storage.
             return [dict(account) for account in accounts]
-        finally:
-            await client.close()

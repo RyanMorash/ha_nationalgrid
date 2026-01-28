@@ -6,15 +6,17 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from aionatgrid import NationalGridClient, NationalGridConfig, create_cookie_jar
+from aionatgrid.exceptions import (
+    CannotConnectError,
+    InvalidAuthError,
+    NationalGridError,
+    RetryExhaustedError,
+)
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import (
-    AmiMeterIdentifier,
-    NationalGridApiClient,
-    NationalGridApiClientAuthenticationError,
-    NationalGridApiClientError,
-)
 from .const import _LOGGER, CONF_SELECTED_ACCOUNTS
 
 if TYPE_CHECKING:
@@ -31,6 +33,16 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .data import NationalGridConfigEntry
+
+
+@dataclass(frozen=True)
+class AmiMeterIdentifier:
+    """Identify an AMI smart meter for data queries."""
+
+    meter_number: str
+    premise_number: str
+    service_point_number: str
+    meter_point_number: str
 
 
 @dataclass
@@ -61,26 +73,35 @@ class NationalGridDataUpdateCoordinator(
 
     config_entry: NationalGridConfigEntry
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         hass: HomeAssistant,
         logger: logging.Logger,
         name: str,
         update_interval: timedelta,
-        client: NationalGridApiClient,
+        username: str,
+        password: str,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(hass, logger, name=name, update_interval=update_interval)
-        self.client = client
+        session = async_create_clientsession(hass, cookie_jar=create_cookie_jar())
+        self.api = NationalGridClient(
+            config=NationalGridConfig(username=username, password=password),
+            session=session,
+        )
         self._last_update_success = True
 
     async def _async_update_data(self) -> NationalGridCoordinatorData:
         """Update data via library."""
         try:
             data = await self._fetch_all_data()
-        except NationalGridApiClientAuthenticationError as exception:
+        except InvalidAuthError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
-        except NationalGridApiClientError as exception:
+        except (
+            CannotConnectError,
+            RetryExhaustedError,
+            NationalGridError,
+        ) as exception:
             if self._last_update_success:
                 _LOGGER.warning("National Grid service unavailable: %s", exception)
             self._last_update_success = False
@@ -109,10 +130,14 @@ class NationalGridDataUpdateCoordinator(
         for account_id in selected_accounts:
             try:
                 await self._fetch_account_data(account_id, today, from_month, data)
-            except NationalGridApiClientAuthenticationError:
+            except InvalidAuthError:
                 # Re-raise auth errors to trigger reauth flow.
                 raise
-            except NationalGridApiClientError as err:
+            except (
+                CannotConnectError,
+                RetryExhaustedError,
+                NationalGridError,
+            ) as err:
                 _LOGGER.warning(
                     "Error fetching data for account %s: %s", account_id, err
                 )
@@ -153,11 +178,9 @@ class NationalGridDataUpdateCoordinator(
         data: NationalGridCoordinatorData,
     ) -> None:
         """Fetch billing, usage, cost, and AMI data for a single account."""
-        client = self.client
-
         # Fetch billing account info.
         _LOGGER.debug("Fetching billing account: %s", account_id)
-        billing_account = await client.async_get_billing_account(account_id)
+        billing_account = await self.api.get_billing_account(account_id)
         data.accounts[account_id] = billing_account
         _LOGGER.debug(
             "Billing account %s: region=%s, meters=%s",
@@ -204,7 +227,7 @@ class NationalGridDataUpdateCoordinator(
     ) -> list[EnergyUsage]:
         """Fetch energy usages for an account, returning empty list on error."""
         try:
-            account_usages = await self.client.async_get_energy_usages(
+            account_usages = await self.api.get_energy_usages(
                 account_number=account_id,
                 from_month=from_month,
                 first=12,
@@ -215,7 +238,11 @@ class NationalGridDataUpdateCoordinator(
                 account_id,
                 {u.get("usageType") for u in account_usages},
             )
-        except NationalGridApiClientError as err:
+        except (
+            CannotConnectError,
+            RetryExhaustedError,
+            NationalGridError,
+        ) as err:
             _LOGGER.debug(
                 "Could not fetch energy usages for account %s: %s",
                 account_id,
@@ -237,7 +264,7 @@ class NationalGridDataUpdateCoordinator(
             if not region:
                 _LOGGER.debug("No region for account %s, skipping costs", account_id)
                 return []
-            account_costs = await self.client.async_get_energy_usage_costs(
+            account_costs = await self.api.get_energy_usage_costs(
                 account_number=account_id,
                 query_date=today,
                 company_code=region,
@@ -247,7 +274,12 @@ class NationalGridDataUpdateCoordinator(
                 len(account_costs),
                 account_id,
             )
-        except NationalGridApiClientError as err:
+        except (
+            CannotConnectError,
+            RetryExhaustedError,
+            NationalGridError,
+            ValueError,
+        ) as err:
             _LOGGER.debug(
                 "Could not fetch energy costs for account %s: %s",
                 account_id,
@@ -266,7 +298,6 @@ class NationalGridDataUpdateCoordinator(
         interval_reads: dict[str, list[IntervalRead]],
     ) -> None:
         """Fetch AMI energy usages for AMI-capable meters."""
-        client = self.client
         premise_number = billing_account.get("premiseNumber", "")
         for meter in meter_nodes:
             if not meter.get("hasAmiSmartMeter"):
@@ -283,8 +314,11 @@ class NationalGridDataUpdateCoordinator(
                     service_point_number=sp,
                     meter_point_number=str(meter.get("meterPointNumber", "")),
                 )
-                ami_data = await client.async_get_ami_energy_usages(
-                    meter=ami_meter,
+                ami_data = await self.api.get_ami_energy_usages(
+                    meter_number=ami_meter.meter_number,
+                    premise_number=ami_meter.premise_number,
+                    service_point_number=ami_meter.service_point_number,
+                    meter_point_number=ami_meter.meter_point_number,
                     date_from=date_from,
                     date_to=date_to,
                 )
@@ -294,7 +328,11 @@ class NationalGridDataUpdateCoordinator(
                     len(ami_data),
                     sp,
                 )
-            except NationalGridApiClientError as err:
+            except (
+                CannotConnectError,
+                RetryExhaustedError,
+                NationalGridError,
+            ) as err:
                 _LOGGER.debug(
                     "Could not fetch AMI usages for meter %s: %s",
                     sp,
@@ -308,7 +346,7 @@ class NationalGridDataUpdateCoordinator(
             try:
                 now = datetime.now(tz=UTC)
                 start_dt = now - timedelta(hours=24)
-                reads = await client.async_get_interval_reads(
+                reads = await self.api.get_interval_reads(
                     premise_number=premise_number,
                     service_point_number=sp,
                     start_datetime=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -319,7 +357,11 @@ class NationalGridDataUpdateCoordinator(
                     len(reads),
                     sp,
                 )
-            except NationalGridApiClientError as err:
+            except (
+                CannotConnectError,
+                RetryExhaustedError,
+                NationalGridError,
+            ) as err:
                 _LOGGER.debug(
                     "Could not fetch interval reads for meter %s: %s",
                     sp,

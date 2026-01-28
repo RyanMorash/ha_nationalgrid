@@ -11,10 +11,8 @@ from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 
-from .api import NationalGridApiClient
 from .const import _LOGGER, DOMAIN
 from .coordinator import NationalGridDataUpdateCoordinator
-from .data import NationalGridData
 from .statistics import async_import_all_statistics
 
 if TYPE_CHECKING:
@@ -33,39 +31,28 @@ async def async_setup_entry(
     entry: NationalGridConfigEntry,
 ) -> bool:
     """Set up this integration using UI."""
-    client = NationalGridApiClient(
-        username=entry.data[CONF_USERNAME],
-        password=entry.data[CONF_PASSWORD],
-    )
-
     coordinator = NationalGridDataUpdateCoordinator(
         hass=hass,
         logger=_LOGGER,
         name=DOMAIN,
         update_interval=timedelta(hours=1),
-        client=client,
+        username=entry.data[CONF_USERNAME],
+        password=entry.data[CONF_PASSWORD],
     )
     coordinator.config_entry = entry
 
-    entry.runtime_data = NationalGridData(
-        client=client,
-        coordinator=coordinator,
-    )
+    entry.runtime_data = coordinator
 
-    try:
-        await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_config_entry_first_refresh()
+    await async_import_all_statistics(hass, coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Re-import statistics on each coordinator update.
+    async def _on_update() -> None:
         await async_import_all_statistics(hass, coordinator)
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-        # Re-import statistics on each coordinator update.
-        async def _on_update() -> None:
-            await async_import_all_statistics(hass, coordinator)
-
-        entry.async_on_unload(coordinator.async_add_listener(_on_update))
-        entry.async_on_unload(entry.add_update_listener(async_reload_entry))
-    except Exception:
-        await client.close()
-        raise
+    entry.async_on_unload(coordinator.async_add_listener(_on_update))
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
 
@@ -75,9 +62,7 @@ async def async_unload_entry(
     entry: NationalGridConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    await entry.runtime_data.client.close()
-    return unload_ok
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_reload_entry(

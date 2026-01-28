@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from aionatgrid.exceptions import InvalidAuthError
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -23,6 +24,9 @@ from .conftest import (
     _mock_usages,
 )
 
+PATCH_CLIENT = "custom_components.nationalgrid.coordinator.NationalGridClient"
+PATCH_SESSION = "custom_components.nationalgrid.coordinator.async_create_clientsession"
+
 
 @pytest.fixture
 def config_entry(hass: HomeAssistant):
@@ -40,30 +44,27 @@ def config_entry(hass: HomeAssistant):
     return entry
 
 
+def _make_api_mock() -> AsyncMock:
+    """Create a mock aionatgrid client."""
+    api = AsyncMock()
+    api.get_billing_account = AsyncMock(return_value=_mock_billing_account())
+    api.get_energy_usages = AsyncMock(return_value=_mock_usages())
+    api.get_energy_usage_costs = AsyncMock(return_value=_mock_costs())
+    api.get_ami_energy_usages = AsyncMock(return_value=_mock_ami_usages())
+    api.get_interval_reads = AsyncMock(return_value=_mock_interval_reads())
+    return api
+
+
 async def test_setup_entry(hass: HomeAssistant, config_entry) -> None:
     """Test successful setup of a config entry."""
     with (
-        patch(
-            "custom_components.nationalgrid.NationalGridApiClient",
-        ) as mock_cls,
+        patch(PATCH_CLIENT, return_value=_make_api_mock()),
+        patch(PATCH_SESSION),
         patch(
             "custom_components.nationalgrid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):
-        client = mock_cls.return_value
-        client.async_init = AsyncMock()
-        client.async_get_billing_account = AsyncMock(
-            return_value=_mock_billing_account(),
-        )
-        client.async_get_energy_usages = AsyncMock(return_value=_mock_usages())
-        client.async_get_energy_usage_costs = AsyncMock(return_value=_mock_costs())
-        client.async_get_ami_energy_usages = AsyncMock(return_value=_mock_ami_usages())
-        client.async_get_interval_reads = AsyncMock(
-            return_value=_mock_interval_reads(),
-        )
-        client.close = AsyncMock()
-
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
@@ -74,27 +75,13 @@ async def test_setup_entry(hass: HomeAssistant, config_entry) -> None:
 async def test_unload_entry(hass: HomeAssistant, config_entry) -> None:
     """Test unloading a config entry."""
     with (
-        patch(
-            "custom_components.nationalgrid.NationalGridApiClient",
-        ) as mock_cls,
+        patch(PATCH_CLIENT, return_value=_make_api_mock()),
+        patch(PATCH_SESSION),
         patch(
             "custom_components.nationalgrid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):
-        client = mock_cls.return_value
-        client.async_init = AsyncMock()
-        client.async_get_billing_account = AsyncMock(
-            return_value=_mock_billing_account(),
-        )
-        client.async_get_energy_usages = AsyncMock(return_value=_mock_usages())
-        client.async_get_energy_usage_costs = AsyncMock(return_value=_mock_costs())
-        client.async_get_ami_energy_usages = AsyncMock(return_value=_mock_ami_usages())
-        client.async_get_interval_reads = AsyncMock(
-            return_value=_mock_interval_reads(),
-        )
-        client.close = AsyncMock()
-
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
         assert config_entry.state is ConfigEntryState.LOADED
@@ -107,26 +94,19 @@ async def test_unload_entry(hass: HomeAssistant, config_entry) -> None:
 
 async def test_setup_entry_auth_error(hass: HomeAssistant, config_entry) -> None:
     """Test setup with auth error triggers reauth."""
-    from custom_components.nationalgrid.api import (
-        NationalGridApiClientAuthenticationError,
+    api = _make_api_mock()
+    api.get_billing_account = AsyncMock(
+        side_effect=InvalidAuthError("Bad creds"),
     )
 
     with (
-        patch(
-            "custom_components.nationalgrid.NationalGridApiClient",
-        ) as mock_cls,
+        patch(PATCH_CLIENT, return_value=api),
+        patch(PATCH_SESSION),
         patch(
             "custom_components.nationalgrid.async_import_all_statistics",
             new_callable=AsyncMock,
         ),
     ):
-        client = mock_cls.return_value
-        client.async_init = AsyncMock()
-        client.async_get_billing_account = AsyncMock(
-            side_effect=NationalGridApiClientAuthenticationError("Bad creds"),
-        )
-        client.close = AsyncMock()
-
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 

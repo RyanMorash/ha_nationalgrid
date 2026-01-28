@@ -27,15 +27,13 @@ The integration follows the standard Home Assistant custom component pattern:
 
 - **`__init__.py`**: Entry setup with `async_setup_entry`/`async_unload_entry`. Configures the coordinator with 1-hour update interval and forwards to platforms (sensor, binary_sensor).
 
-- **`api.py`**: `NationalGridApiClient` wraps the `aionatgrid` library (`NationalGridClient`/`NationalGridConfig`). Provides methods for linked accounts, billing, energy usages, costs, interval reads, and AMI data. Custom exceptions: `NationalGridApiClientError`, `NationalGridApiClientCommunicationError`, `NationalGridApiClientAuthenticationError`.
-
-- **`coordinator.py`**: `NationalGridDataUpdateCoordinator` extends Home Assistant's `DataUpdateCoordinator`. Contains `MeterData` and `NationalGridCoordinatorData` dataclasses. Fetches billing, usage, cost, and AMI data per meter. Translates API exceptions to HA-specific ones.
+- **`coordinator.py`**: `NationalGridDataUpdateCoordinator` extends Home Assistant's `DataUpdateCoordinator`. Uses `aionatgrid.NationalGridClient` directly (no intermediate wrapper). Contains `AmiMeterIdentifier`, `MeterData`, and `NationalGridCoordinatorData` dataclasses. Fetches billing, usage, cost, and AMI data per meter. Catches `aionatgrid` exceptions and translates to HA-specific ones (`ConfigEntryAuthFailed`, `UpdateFailed`).
 
 - **`config_flow.py`**: `NationalGridFlowHandler` implements UI configuration. Collects username/password, then presents account selection step. Supports reauthentication flow.
 
 - **`entity.py`**: `NationalGridEntity` base class extends `CoordinatorEntity`. Sets up device info and unique_id from config entry.
 
-- **`data.py`**: `NationalGridData` dataclass holds runtime data (client, coordinator). `NationalGridConfigEntry` type alias for typed config entries.
+- **`data.py`**: `NationalGridConfigEntry` type alias for typed config entries. `entry.runtime_data` is the coordinator directly.
 
 - **`const.py`**: Domain, logger, attribution, `CONF_SELECTED_ACCOUNTS`, unit constants (`UNIT_KWH`, `UNIT_CCF`, `THERM_TO_CCF`), and `therms_to_ccf()` conversion helper.
 
@@ -46,8 +44,8 @@ The integration follows the standard Home Assistant custom component pattern:
 ## Key Patterns
 
 - All entities inherit from `NationalGridEntity` which handles coordinator binding and device registration
-- Runtime data stored in `entry.runtime_data` as `NationalGridData` dataclass
-- API client passed through runtime_data, coordinator fetches billing/usage/cost/AMI data per meter
+- Runtime data stored in `entry.runtime_data` as the coordinator directly (no wrapper dataclass)
+- Coordinator uses `aionatgrid.NationalGridClient` directly with an HA-managed session
 - Uses `CoordinatorEntity` pattern for automatic state updates
 
 ## Documentation Reference

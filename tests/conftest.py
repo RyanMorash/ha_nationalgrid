@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
@@ -126,34 +124,3 @@ def _mock_interval_reads() -> list[dict]:
             "value": 0.25,
         },
     ]
-
-
-@pytest.fixture
-def mock_api_client():
-    """Patch the NationalGridApiClient with mock return data."""
-    with patch(
-        "custom_components.nationalgrid.api.NationalGridApiClient",
-        autospec=True,
-    ) as mock_cls:
-        client = mock_cls.return_value
-        client.async_init = AsyncMock()
-        client.async_get_linked_accounts = AsyncMock(
-            return_value=[{"billingAccountId": MOCK_ACCOUNT_ID}],
-        )
-        client.async_get_billing_account = AsyncMock(
-            return_value=_mock_billing_account(),
-        )
-        client.async_get_energy_usages = AsyncMock(
-            return_value=_mock_usages(),
-        )
-        client.async_get_energy_usage_costs = AsyncMock(
-            return_value=_mock_costs(),
-        )
-        client.async_get_interval_reads = AsyncMock(
-            return_value=_mock_interval_reads(),
-        )
-        client.async_get_ami_energy_usages = AsyncMock(
-            return_value=_mock_ami_usages(),
-        )
-        client.close = AsyncMock()
-        yield client
