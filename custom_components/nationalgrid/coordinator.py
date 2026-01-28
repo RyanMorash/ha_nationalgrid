@@ -71,6 +71,7 @@ class NationalGridDataUpdateCoordinator(
         """Initialize the coordinator."""
         super().__init__(hass, logger, name=name, update_interval=update_interval)
         self.client = client
+        self._last_update_success = True
 
     async def _async_update_data(self) -> NationalGridCoordinatorData:
         """Update data via library."""
@@ -79,8 +80,14 @@ class NationalGridDataUpdateCoordinator(
         except NationalGridApiClientAuthenticationError as exception:
             raise ConfigEntryAuthFailed(exception) from exception
         except NationalGridApiClientError as exception:
+            if self._last_update_success:
+                LOGGER.warning("National Grid service unavailable: %s", exception)
+            self._last_update_success = False
             raise UpdateFailed(exception) from exception
 
+        if not self._last_update_success:
+            LOGGER.info("National Grid service recovered")
+        self._last_update_success = True
         return data
 
     async def _fetch_all_data(self) -> NationalGridCoordinatorData:  # noqa: PLR0915

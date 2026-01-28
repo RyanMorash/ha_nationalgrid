@@ -14,6 +14,8 @@ from homeassistant.const import EntityCategory
 from .const import DOMAIN
 from .entity import NationalGridEntity
 
+PARALLEL_UPDATES = 1
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 

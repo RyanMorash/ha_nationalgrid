@@ -14,6 +14,8 @@ from homeassistant.components.sensor import (
 from .const import DOMAIN, LOGGER, UNIT_CCF, UNIT_KWH, therms_to_ccf
 from .entity import NationalGridEntity
 
+PARALLEL_UPDATES = 1
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
