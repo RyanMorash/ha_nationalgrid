@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 from aionatgrid import NationalGridClient, NationalGridConfig
@@ -49,6 +50,7 @@ class NationalGridApiClient:
         # Don't pass a session - let the library create its own with proper
         # cookie jar configuration for Azure AD B2C authentication
         self._client = NationalGridClient(config=self._config)
+        self._exit_stack = AsyncExitStack()
         self._context_entered = False
         self._init_lock = asyncio.Lock()
 
@@ -57,7 +59,7 @@ class NationalGridApiClient:
         if not self._context_entered:
             async with self._init_lock:
                 if not self._context_entered:
-                    await self._client.__aenter__()
+                    await self._exit_stack.enter_async_context(self._client)
                     self._context_entered = True
 
     async def async_get_linked_accounts(self) -> list[AccountLink]:
@@ -165,5 +167,5 @@ class NationalGridApiClient:
     async def close(self) -> None:
         """Close the client session."""
         if self._context_entered:
-            await self._client.__aexit__(None, None, None)
+            await self._exit_stack.aclose()
             self._context_entered = False

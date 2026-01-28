@@ -3,25 +3,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
+    NationalGridApiClient,
     NationalGridApiClientAuthenticationError,
     NationalGridApiClientError,
 )
 from .const import CONF_SELECTED_ACCOUNTS, LOGGER
 
 if TYPE_CHECKING:
+    import logging
+
     from aionatgrid.models import (
         BillingAccount,
         EnergyUsage,
         EnergyUsageCost,
         Meter,
     )
+    from homeassistant.core import HomeAssistant
 
     from .data import NationalGridConfigEntry
 
@@ -52,6 +56,18 @@ class NationalGridDataUpdateCoordinator(
 
     config_entry: NationalGridConfigEntry
 
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        logger: logging.Logger,
+        name: str,
+        update_interval: timedelta,
+        client: NationalGridApiClient,
+    ) -> None:
+        """Initialize the coordinator."""
+        super().__init__(hass, logger, name=name, update_interval=update_interval)
+        self.client = client
+
     async def _async_update_data(self) -> NationalGridCoordinatorData:
         """Update data via library."""
         try:
@@ -63,17 +79,19 @@ class NationalGridDataUpdateCoordinator(
 
     async def _fetch_all_data(self) -> NationalGridCoordinatorData:
         """Fetch all data from the API."""
-        client = self.config_entry.runtime_data.client
+        client = self.client
         selected_accounts: list[str] = self.config_entry.data.get(
             CONF_SELECTED_ACCOUNTS, []
         )
 
         LOGGER.debug("Fetching data for accounts: %s", selected_accounts)
 
-        accounts: dict[str, BillingAccount] = {}
-        meters: dict[str, MeterData] = {}
-        usages: dict[str, list[EnergyUsage]] = {}
-        costs: dict[str, list[EnergyUsageCost]] = {}
+        # Seed from previous data to preserve stale data on per-account errors
+        prev = self.data
+        accounts: dict[str, BillingAccount] = dict(prev.accounts) if prev else {}
+        meters: dict[str, MeterData] = dict(prev.meters) if prev else {}
+        usages: dict[str, list[EnergyUsage]] = dict(prev.usages) if prev else {}
+        costs: dict[str, list[EnergyUsageCost]] = dict(prev.costs) if prev else {}
 
         # Calculate from_month for usage query (12 months back)
         today = datetime.now(tz=UTC).date()

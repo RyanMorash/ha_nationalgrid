@@ -29,7 +29,6 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._username: str | None = None
         self._password: str | None = None
         self._accounts: list[dict[str, str]] = []
-        self._reauth_entry: config_entries.ConfigEntry | None = None
 
     async def async_step_user(
         self,
@@ -129,9 +128,6 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         entry_data: dict[str, Any],
     ) -> config_entries.ConfigFlowResult:
         """Handle re-authentication."""
-        self._reauth_entry = self.hass.config_entries.async_get_entry(
-            self.context["entry_id"]
-        )
         self._username = entry_data.get(CONF_USERNAME)
         return await self.async_step_reauth_confirm()
 
@@ -160,18 +156,15 @@ class NationalGridFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
-                if self._reauth_entry is None:
-                    return self.async_abort(reason="unknown")
-                self.hass.config_entries.async_update_entry(
-                    self._reauth_entry,
+                reauth_entry = self._get_reauth_entry()
+                return self.async_update_reload_and_abort(
+                    reauth_entry,
                     data={
-                        **self._reauth_entry.data,
+                        **reauth_entry.data,
                         CONF_USERNAME: username,
                         CONF_PASSWORD: password,
                     },
                 )
-                await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
-                return self.async_abort(reason="reauth_successful")
 
         return self.async_show_form(
             step_id="reauth_confirm",

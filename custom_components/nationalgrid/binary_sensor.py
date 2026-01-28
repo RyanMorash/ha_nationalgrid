@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
@@ -42,7 +41,6 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NationalGridBinarySensorEntityDescription, ...
     NationalGridBinarySensorEntityDescription(
         key="has_smart_meter",
         translation_key="has_smart_meter",
-        device_class=BinarySensorDeviceClass.CONNECTIVITY,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_has_smart_meter,
         icon="mdi:meter-electric",
