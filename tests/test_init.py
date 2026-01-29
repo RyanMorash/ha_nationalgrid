@@ -111,3 +111,28 @@ async def test_setup_entry_auth_error(hass: HomeAssistant, config_entry) -> None
         await hass.async_block_till_done()
 
     assert config_entry.state is ConfigEntryState.SETUP_ERROR
+
+
+async def test_statistics_import_listener(hass: HomeAssistant, config_entry) -> None:
+    """Test that statistics import is called on coordinator updates."""
+    with (
+        patch(PATCH_CLIENT, return_value=_make_api_mock()),
+        patch(PATCH_SESSION),
+        patch(
+            "custom_components.national_grid.async_import_all_statistics",
+            new_callable=AsyncMock,
+        ) as mock_import,
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        # Statistics import should be called once during setup
+        assert mock_import.call_count == 1
+
+        # Trigger a coordinator refresh
+        coordinator = config_entry.runtime_data
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        # Statistics import should be called again after coordinator update
+        assert mock_import.call_count == 2
