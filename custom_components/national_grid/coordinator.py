@@ -306,10 +306,12 @@ class NationalGridDataUpdateCoordinator(
             if not sp:
                 continue
             try:
-                # Fetch last 7 days of AMI data to ensure we capture new readings.
+                # Fetch last 10 days of AMI data ending today.
+                # AMI data has up to 72-hour delay, so recent days may be empty,
+                # but this ensures we capture new data as it becomes available.
                 # Statistics import will deduplicate based on last imported timestamp.
                 date_to = today
-                date_from = today - timedelta(days=7)
+                date_from = today - timedelta(days=10)
                 ami_meter = AmiMeterIdentifier(
                     meter_number=str(meter.get("meterNumber", "")),
                     premise_number=premise_number,
@@ -346,10 +348,11 @@ class NationalGridDataUpdateCoordinator(
             if fuel_type == "Gas":
                 continue
             try:
-                # Fetch last 2 days of interval reads to ensure we capture new data.
+                # Fetch last 36 hours of interval reads (24h available + 12h buffer).
+                # Interval data is only available for the last 24 hours.
                 # Statistics import will deduplicate based on last imported timestamp.
                 now = datetime.now(tz=UTC)
-                start_dt = now - timedelta(days=2)
+                start_dt = now - timedelta(hours=36)
                 reads = await self.api.get_interval_reads(
                     premise_number=premise_number,
                     service_point_number=sp,
