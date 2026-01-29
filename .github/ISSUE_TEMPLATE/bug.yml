@@ -32,21 +32,21 @@ body:
 - type: textarea
   attributes:
     label: Reproduction steps
-    description: "Without steps to reproduce, it will be hard to fix. It is very important that you fill out this part. Issues without it will be closed."
+    description: "Without steps to reproduce, it will be hard to fix. It is very important that you fill out this part. Issues without it may be closed."
     value: |
       1.
       2.
       3.
       ...
   validations:
-    required: true
+    required: false
 - type: textarea
   attributes:
     label: "Debug logs"
     description: "To enable debug logs check this https://www.home-assistant.io/integrations/logger/, this **needs** to include _everything_ from startup of Home Assistant to the point where you encounter the issue."
     render: text
   validations:
-    required: true
+    required: false
 
 - type: textarea
   attributes:
