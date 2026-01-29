@@ -348,9 +348,9 @@ class NationalGridDataUpdateCoordinator(
             if fuel_type == "Gas":
                 continue
             try:
-                # Fetch last 36 hours of interval reads (24h available + 12h buffer).
-                # Interval data is only available for the last 24 hours.
-                # Statistics import will deduplicate based on last imported timestamp.
+                # Fetch last 36 hours of interval reads (provides buffer for
+                # 24-hour availability window). Statistics import will deduplicate
+                # based on last imported timestamp.
                 now = datetime.now(tz=UTC)
                 start_dt = now - timedelta(hours=36)
                 reads = await self.api.get_interval_reads(
