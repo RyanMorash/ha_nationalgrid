@@ -4,6 +4,15 @@ A custom [Home Assistant](https://www.home-assistant.io/) integration that provi
 
 This integration polls your National Grid account once per hour and creates sensor and binary sensor entities for each meter linked to your account, giving you visibility into your electricity and gas billing data directly in Home Assistant.
 
+## Features
+
+- **Energy Usage Sensors**: Track your monthly billing usage and costs
+- **Smart Meter Detection**: Identify which meters have AMI (Advanced Metering Infrastructure) capabilities
+- **Long-Term Statistics**: Import historical energy data for use in the Energy Dashboard
+- **Solar/Return Support**: Separate statistics for grid consumption and energy returned to the grid (for solar users)
+- **Historical Data Import**: On first setup, imports up to 5 years of historical data
+- **Force Refresh Service**: Manually trigger a full historical data refresh when needed
+
 ## Installation
 
 ### HACS (Recommended)
@@ -62,6 +71,19 @@ The integration creates the following entities for each meter on your account:
 |--------|-------------|----------|
 | Smart Meter | Whether the meter is an AMI smart meter | Diagnostic |
 
+### Device Information
+
+Each meter device includes detailed information:
+
+| Field | Description |
+|-------|-------------|
+| Name | Fuel type and meter designation (e.g., "Electric Meter") |
+| Model | Meter type (AMI Smart Meter, Smart Meter, or Standard Meter) |
+| Serial Number | Meter number |
+| Hardware Version | Service Point, Meter Point, and Premise numbers |
+| Software Version | Device code, Region, and Customer type |
+| Suggested Area | Derived from service address |
+
 ## Data Updates
 
 The integration polls National Grid's API **every hour**. Each update fetches:
@@ -72,16 +94,95 @@ The integration polls National Grid's API **every hour**. Each update fetches:
 - AMI (smart meter) energy usage data for meters that support it
 - Interval reads (15-minute granularity) for electric smart meters
 
-### Long-Term Statistics
+### First Setup vs. Incremental Updates
+
+**On first setup**, the integration imports full historical data:
+- Up to 5 years of AMI hourly usage data
+- Up to 5 years of interval read data (if available from the API)
+- 15 months of billing usage data
+
+**On incremental updates** (after first setup):
+- AMI data: Last 48 hours only (prevents overlap with interval data)
+- Interval data: Last 24 hours
+- Billing data: Last 12 months
+
+## Long-Term Statistics
 
 The integration imports external statistics into Home Assistant's recorder on every update. These statistics can be used in the **Energy dashboard** and for long-term trend analysis.
 
-| Statistic ID | Description | Unit | Source Data |
-|--------------|-------------|------|-------------|
-| `national_grid:{service_point}_electric_hourly_usage` | Electric hourly AMI usage | kWh | AMI smart meter readings |
-| `national_grid:{service_point}_gas_hourly_usage` | Gas hourly AMI usage | CCF | AMI smart meter readings |
-| `national_grid:{service_point}_electric_interval_usage` | Electric 15-minute interval usage (aggregated to hourly) | kWh | Electric interval reads |
+### Electric Meters
 
-`{service_point}` is replaced with your meter's service point identifier (e.g. `SP1`).
+| Statistic ID | Description | Unit | Notes |
+|--------------|-------------|------|-------|
+| `national_grid:{sp}_electric_hourly_usage` | Electric hourly AMI consumption | kWh | Energy consumed from grid |
+| `national_grid:{sp}_electric_return_hourly_usage` | Electric hourly AMI return | kWh | Energy returned to grid (solar users only) |
+| `national_grid:{sp}_electric_interval_usage` | Electric interval consumption | kWh | 15-minute data aggregated hourly |
+| `national_grid:{sp}_electric_interval_return_usage` | Electric interval return | kWh | Energy returned (solar users only) |
 
-To add these to the Energy dashboard, go to **Settings > Dashboards > Energy** and select the relevant statistics under **Electricity grid** or **Gas consumption**.
+### Gas Meters
+
+| Statistic ID | Description | Unit |
+|--------------|-------------|------|
+| `national_grid:{sp}_gas_hourly_usage` | Gas hourly AMI usage | CCF |
+
+`{sp}` is replaced with your meter's service point identifier.
+
+### Energy Dashboard Setup
+
+To add these statistics to the Energy dashboard:
+
+1. Go to **Settings > Dashboards > Energy**
+2. Under **Electricity grid**:
+   - Add `national_grid:{sp}_electric_hourly_usage` or `national_grid:{sp}_electric_interval_usage` as "Grid consumption"
+   - If you have solar, add `national_grid:{sp}_electric_return_hourly_usage` or `national_grid:{sp}_electric_interval_return_usage` as "Return to grid"
+3. Under **Gas consumption**:
+   - Add `national_grid:{sp}_gas_hourly_usage`
+
+**Note**: Choose either hourly OR interval statistics for each type - don't add both to avoid double-counting.
+
+## Services
+
+### `national_grid.force_full_refresh`
+
+Triggers a full historical data refresh, reimporting up to 5 years of data. Use this to:
+- Recover from data gaps
+- Repopulate statistics after database issues
+- Force a complete resync of historical data
+
+**Service Data:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `entry_id` | No | Config entry ID of a specific integration to refresh. If not provided, all National Grid integrations are refreshed. |
+
+**Example automation:**
+```yaml
+service: national_grid.force_full_refresh
+data: {}
+```
+
+## Troubleshooting
+
+### Missing Historical Data
+
+If you notice gaps in your historical statistics:
+1. Call the `national_grid.force_full_refresh` service
+2. Wait for the refresh to complete (check logs for "Force full refresh completed")
+3. Verify data in Developer Tools > Statistics
+
+### Double Counting in Energy Dashboard
+
+If energy values appear doubled:
+- Ensure you're only using ONE statistic type per energy source (either hourly OR interval, not both)
+- The integration automatically prevents overlap between AMI and interval data
+
+### Logs
+
+Enable debug logging for detailed information:
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.national_grid: debug
+```
