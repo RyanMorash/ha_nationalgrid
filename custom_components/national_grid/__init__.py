@@ -9,14 +9,16 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.helpers import config_validation as cv
 
 from .const import _LOGGER, DOMAIN
 from .coordinator import NationalGridDataUpdateCoordinator
 from .statistics import async_import_all_statistics
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+    from homeassistant.core import HomeAssistant, ServiceCall
 
     from .data import NationalGridConfigEntry
 
@@ -24,6 +26,14 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
 ]
+
+# Service names
+SERVICE_FORCE_REFRESH = "force_full_refresh"
+
+# Service schemas
+SERVICE_FORCE_REFRESH_SCHEMA = vol.Schema({
+    vol.Optional("entry_id"): cv.string,
+})
 
 
 async def async_setup_entry(
@@ -54,7 +64,62 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_on_update))
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
+    # Register services (only once, when first entry is set up)
+    await _async_setup_services(hass)
+
     return True
+
+
+async def _async_setup_services(hass: HomeAssistant) -> None:
+    """Set up National Grid services."""
+    
+    async def handle_force_refresh(call: ServiceCall) -> None:
+        """Handle the force_full_refresh service call."""
+        entry_id = call.data.get("entry_id")
+        
+        # Get all National Grid config entries
+        entries = hass.config_entries.async_entries(DOMAIN)
+        
+        if not entries:
+            _LOGGER.warning("No National Grid integrations configured")
+            return
+        
+        # Filter to specific entry if provided
+        if entry_id:
+            entries = [e for e in entries if e.entry_id == entry_id]
+            if not entries:
+                _LOGGER.warning("No National Grid integration found with entry_id: %s", entry_id)
+                return
+        
+        for entry in entries:
+            coordinator: NationalGridDataUpdateCoordinator = entry.runtime_data
+            _LOGGER.info(
+                "Force full refresh triggered for account: %s",
+                entry.title,
+            )
+            
+            # Reset to first refresh mode to get full historical data
+            coordinator.reset_to_first_refresh()
+            
+            # Trigger an immediate refresh
+            await coordinator.async_refresh()
+            
+            # Import statistics after refresh
+            await async_import_all_statistics(hass, coordinator)
+            
+            _LOGGER.info(
+                "Force full refresh completed for account: %s",
+                entry.title,
+            )
+    
+    # Only register if not already registered
+    if not hass.services.has_service(DOMAIN, SERVICE_FORCE_REFRESH):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_FORCE_REFRESH,
+            handle_force_refresh,
+            schema=SERVICE_FORCE_REFRESH_SCHEMA,
+        )
 
 
 async def async_unload_entry(

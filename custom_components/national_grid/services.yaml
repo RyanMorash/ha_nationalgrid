@@ -1,0 +1,18 @@
+force_full_refresh:
+  name: Force Full Refresh
+  description: >-
+    Triggers a full historical data refresh for National Grid statistics.
+    This will fetch up to 5 years of AMI hourly data and interval data,
+    reimporting all statistics. Use this to recover from data gaps or
+    to repopulate statistics after database issues.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: >-
+        Optional. The config entry ID of a specific National Grid integration
+        to refresh. If not provided, all National Grid integrations will be
+        refreshed.
+      required: false
+      example: "abc123def456"
+      selector:
+        text:
