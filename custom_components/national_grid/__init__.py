@@ -48,8 +48,8 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Re-import statistics on each coordinator update.
-    async def _on_update() -> None:
-        await async_import_all_statistics(hass, coordinator)
+    def _on_update() -> None:
+        hass.async_create_task(async_import_all_statistics(hass, coordinator))
 
     entry.async_on_unload(coordinator.async_add_listener(_on_update))
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

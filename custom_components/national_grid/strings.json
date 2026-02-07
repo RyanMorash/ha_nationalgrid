@@ -2,7 +2,7 @@
     "config": {
         "step": {
             "user": {
-                "description": "Enter your National Grid account credentials. You can find more information at https://github.com/ryanmorash/ha_nationalgrid",
+                "description": "Enter your National Grid account credentials.",
                 "data": {
                     "username": "Username",
                     "password": "Password"
