@@ -49,14 +49,6 @@ if TYPE_CHECKING:
     from .coordinator import NationalGridDataUpdateCoordinator
 
 
-def _get_interval_statistic_ids(service_point: str) -> list[str]:
-    """Get the interval statistic IDs for a service point."""
-    return [
-        f"{DOMAIN}:{service_point}_electric_interval_usage",
-        f"{DOMAIN}:{service_point}_electric_interval_return_usage",
-    ]
-
-
 async def async_import_all_statistics(
     hass: HomeAssistant,
     coordinator: NationalGridDataUpdateCoordinator,

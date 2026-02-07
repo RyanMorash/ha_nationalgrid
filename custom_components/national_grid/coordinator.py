@@ -643,8 +643,8 @@ class NationalGridDataUpdateCoordinator(
         """Reset the coordinator to perform a full historical data import.
         
         This sets the first refresh flag to True, which will cause the next
-        refresh to fetch full historical data (up to 5 years of AMI data,
-        5 years of interval data, etc.) instead of just recent incremental data.
+        refresh to fetch full historical data (up to 5 years of AMI hourly data
+        and ~43 hours of interval reads) instead of just recent incremental data.
         
         This is useful for:
         - Recovering from data gaps
