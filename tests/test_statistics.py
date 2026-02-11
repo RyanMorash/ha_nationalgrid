@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from custom_components.national_grid.coordinator import (
@@ -103,8 +104,6 @@ async def test_import_hourly_stats_gas(mock_get_instance, mock_add_stats, hass) 
 @patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats(mock_get_instance, mock_add_stats, hass) -> None:
     """Test interval reads are bucketed into hourly totals."""
-    from datetime import UTC, datetime, timedelta
-
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
 
     # Use dates within the last 2 days so they pass the cutoff
@@ -221,8 +220,6 @@ async def test_import_interval_stats_always_reimports_fresh(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats always clears and reimports fresh (no continuation from existing sum)."""
-    from datetime import UTC, datetime, timedelta
-
     # Use dates within the last 2 days
     now = datetime.now(tz=UTC)
     base_time = (now - timedelta(hours=3)).replace(minute=0, second=0, microsecond=0)
@@ -307,8 +304,6 @@ async def test_import_hourly_stats_imports_all_new_data(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test that all new readings are imported regardless of age (no arbitrary cutoff)."""
-    from datetime import UTC, datetime, timedelta
-
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
 
     # Create readings: both recent and old - all should be imported since there's no cutoff
@@ -345,8 +340,6 @@ async def test_import_interval_stats_with_return_values(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats creates separate consumption and return statistics when negative values exist."""
-    from datetime import UTC, datetime, timedelta
-
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
 
     # Use dates within the last 2 days
@@ -398,8 +391,6 @@ async def test_import_interval_stats_no_return_when_no_negative(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats only creates consumption statistic when no negative values exist."""
-    from datetime import UTC, datetime, timedelta
-
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
 
     # Use dates within the last 2 days

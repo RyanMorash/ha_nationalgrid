@@ -36,7 +36,6 @@ SERVICE_FORCE_REFRESH = "force_full_refresh"
 SERVICE_FORCE_REFRESH_SCHEMA = vol.Schema(
     {
         vol.Optional("entry_id"): cv.string,
-        vol.Optional("clear_interval_stats", default=False): cv.boolean,
     }
 )
 
@@ -106,9 +105,6 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
     async def handle_force_refresh(call: ServiceCall) -> None:
         """Handle the force_full_refresh service call."""
         entry_id = call.data.get("entry_id")
-        # Note: clear_interval_stats is now effectively always True since interval
-        # stats are always cleared and reimported. Kept for backwards compatibility.
-        clear_interval = call.data.get("clear_interval_stats", False)
 
         # Get all National Grid config entries
         entries = hass.config_entries.async_entries(DOMAIN)
@@ -136,14 +132,11 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             # Reset to first refresh mode to get full historical data
             coordinator.reset_to_first_refresh()
 
-            try:
-                # Trigger an immediate refresh
-                await coordinator.async_refresh()
+            # Trigger an immediate refresh
+            await coordinator.async_refresh()
 
-                # Import statistics after refresh
-                await async_import_all_statistics(hass, coordinator)
-            finally:
-                pass  # No flags to reset - first_refresh auto-resets after refresh
+            # Import statistics after refresh
+            await async_import_all_statistics(hass, coordinator)
 
             _LOGGER.info(
                 "Force full refresh completed for account: %s",

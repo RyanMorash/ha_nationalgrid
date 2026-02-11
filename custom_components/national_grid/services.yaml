@@ -16,15 +16,3 @@ force_full_refresh:
       example: "abc123def456"
       selector:
         text:
-    clear_interval_stats:
-      name: Clear Interval Statistics
-      description: >-
-        If enabled, clears all interval statistics before reimporting.
-        This removes old interval data and reimports only the last 2 days
-        (yesterday + today). Use this to remove overlapping data between
-        Hourly and Interval statistics. This is automatically done at
-        the midnight refresh (00:18).
-      required: false
-      default: false
-      selector:
-        boolean:

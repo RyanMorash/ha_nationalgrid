@@ -105,7 +105,6 @@ Each meter device includes detailed information:
 | Model            | Meter type (AMI Smart Meter, Smart Meter, or Standard Meter) |
 | Serial Number    | Meter number                                                 |
 | Hardware Version | Service Point, Meter Point, and Premise numbers              |
-| Software Version | Device code, Region, and Customer type                       |
 
 ## Data Updates
 
@@ -127,8 +126,8 @@ The integration polls National Grid's API **every hour**. Each update fetches:
 
 **On incremental updates** (after first setup):
 
-- AMI data: Last 48 hours only (prevents overlap with interval data)
-- Interval data: Last 24 hours
+- AMI data: Last 5 days (catches newly available data as it appears)
+- Interval data: Last 2 days (from midnight)
 - Billing data: Last 12 months
 
 ## Long-Term Statistics

@@ -22,6 +22,8 @@ data don't overlap.
 
 from __future__ import annotations
 
+import asyncio
+import re
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import TYPE_CHECKING
@@ -48,6 +50,25 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
     from .coordinator import NationalGridDataUpdateCoordinator
+
+
+def _build_statistic_metadata(
+    statistic_id: str,
+    name: str,
+    unit: str,
+) -> StatisticMetaData:
+    """Build StatisticMetaData with HA 2025.11+ mean_type compatibility."""
+    kwargs = {
+        "has_mean": False,
+        "has_sum": True,
+        "name": name,
+        "source": DOMAIN,
+        "statistic_id": statistic_id,
+        "unit_of_measurement": unit,
+    }
+    if HAS_MEAN_TYPE:
+        kwargs["mean_type"] = StatisticMeanType.NONE
+    return StatisticMetaData(**kwargs)
 
 
 async def async_import_all_statistics(
@@ -277,8 +298,8 @@ async def _import_hourly_stats(
         # The API returns timestamps like "2026-01-31T23:00:00.000Z"
         # These are in UTC (the Z suffix is correct).
         try:
-            # Remove milliseconds and handle Z suffix
-            clean_date = date_str.replace(".000", "")
+            # Strip fractional seconds (any precision) and handle Z suffix
+            clean_date = re.sub(r"\.\d+", "", date_str)
             if clean_date.endswith("Z"):
                 clean_date = clean_date[:-1] + "+00:00"
             dt = datetime.fromisoformat(clean_date)
@@ -333,27 +354,7 @@ async def _import_hourly_stats(
     else:
         stat_name = f"{service_point} Electric Hourly Usage"
 
-    # Build metadata with mean_type for HA 2025.11+ compatibility
-    if HAS_MEAN_TYPE:
-        metadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            mean_type=StatisticMeanType.NONE,
-            name=stat_name,
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_of_measurement=unit,
-        )
-    else:
-        metadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            name=stat_name,
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_of_measurement=unit,
-        )
-
+    metadata = _build_statistic_metadata(statistic_id, stat_name, unit)
     async_add_external_statistics(hass, metadata, stats)
 
     _LOGGER.info(
@@ -457,10 +458,8 @@ async def _import_interval_stats(
     # This ensures we always have accurate data (handles partial hours being updated)
     recorder = get_instance(hass)
     recorder.async_clear_statistics([statistic_id])
-    # Brief pause to let recorder process the clear
-    import asyncio
-
-    await asyncio.sleep(0.1)
+    # Yield to the event loop so the recorder can process the clear
+    await asyncio.sleep(0)
 
     # Bucket interval reads by hour (HA requires top-of-hour timestamps).
     # Filter by consumption_only or return_only during bucketing.
@@ -537,27 +536,9 @@ async def _import_interval_stats(
         _LOGGER.info("Interval %s: no data within 2-day window to import", stat_type)
         return
 
-    # Build metadata with mean_type for HA 2025.11+ compatibility
-    if HAS_MEAN_TYPE:
-        metadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            mean_type=StatisticMeanType.NONE,
-            name=stat_name,
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        )
-    else:
-        metadata = StatisticMetaData(
-            has_mean=False,
-            has_sum=True,
-            name=stat_name,
-            source=DOMAIN,
-            statistic_id=statistic_id,
-            unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        )
-
+    metadata = _build_statistic_metadata(
+        statistic_id, stat_name, UnitOfEnergy.KILO_WATT_HOUR
+    )
     async_add_external_statistics(hass, metadata, stats)
 
     if return_only:
