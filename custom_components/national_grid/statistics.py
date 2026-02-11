@@ -4,10 +4,10 @@ Creates external statistic series for energy usage:
 
 For electric meters:
 - On first setup: Imports all historical data from energy_usages (up to 465 days)
-- On updates: 
+- On updates:
   * AMI hourly usage for last ~48 hours (near real-time)
   * Interval reads for validated data older than 48 hours
-  
+
 For gas meters:
 - AMI hourly usage statistics only (no interval data available)
 
@@ -34,11 +34,12 @@ from homeassistant.components.recorder.statistics import (
 )
 from homeassistant.const import UnitOfEnergy
 
-from .const import _LOGGER, DOMAIN, therms_to_ccf
+from .const import _LOGGER, DOMAIN
 
 # StatisticMeanType was added in HA 2025.11 - use it if available for forward compatibility
 try:
     from homeassistant.components.recorder.models import StatisticMeanType
+
     HAS_MEAN_TYPE = True
 except ImportError:
     HAS_MEAN_TYPE = False
@@ -60,7 +61,7 @@ async def async_import_all_statistics(
     - Midnight refresh: Force full hourly import (fills gaps from newly available data)
     - Subsequent refreshes: Only import data newer than last recorded statistic
     - Interval stats: Always cleared and reimported (last 2 days only)
-    
+
     This ensures:
     1. Complete historical data on initial setup
     2. Gap filling when force_full_refresh is used
@@ -78,7 +79,7 @@ async def async_import_all_statistics(
     is_first_refresh = data.is_first_refresh
     is_midnight_refresh = data.is_midnight_refresh
     force_hourly_import = is_first_refresh or is_midnight_refresh
-    
+
     # Determine mode for logging
     if is_first_refresh:
         mode = "first_refresh"
@@ -86,7 +87,7 @@ async def async_import_all_statistics(
         mode = "midnight_refresh"
     else:
         mode = "incremental"
-    
+
     _LOGGER.info(
         "Importing statistics: %s AMI meters, %s interval meters, mode=%s",
         len(data.ami_usages),
@@ -107,9 +108,9 @@ async def async_import_all_statistics(
         # On incremental: only import new data
         if is_gas:
             await _import_hourly_stats(
-                hass, 
-                sp, 
-                ami_readings, 
+                hass,
+                sp,
+                ami_readings,
                 is_gas=True,
                 force_import_all=force_hourly_import,
             )
@@ -127,7 +128,7 @@ async def async_import_all_statistics(
     # Each import now clears and reimports to ensure accuracy with partial hour data
     for sp, reads in data.interval_reads.items():
         await _import_interval_stats_electric(hass, sp, reads)
-    
+
     _LOGGER.info("Statistics import complete")
 
 
@@ -139,18 +140,19 @@ async def _import_hourly_stats_electric(
     force_import_all: bool = False,
 ) -> None:
     """Import hourly AMI usage statistics for electric meters.
-    
+
     Creates two separate statistics:
     - Consumption (positive values): Energy used from grid
     - Return (negative values): Energy returned to grid (solar)
-    
+
     This matches OPower behavior and allows proper display in Energy Dashboard.
-    
+
     Args:
         hass: Home Assistant instance
         service_point: Service point identifier
         readings: List of AMI readings
         force_import_all: If True, import all data regardless of last_ts (fills gaps)
+
     """
     # Import consumption (positive values)
     await _import_hourly_stats(
@@ -161,7 +163,7 @@ async def _import_hourly_stats_electric(
         consumption_only=True,
         force_import_all=force_import_all,
     )
-    
+
     # Import return (negative values) if any exist
     has_negative = any(float(r.get("quantity", 0)) < 0 for r in readings)
     if has_negative:
@@ -190,12 +192,12 @@ async def _import_hourly_stats(
     Imports AMI readings based on mode:
     - Normal mode: Only import readings newer than last recorded timestamp
     - Force mode (force_import_all=True): Import ALL readings, filling gaps
-    
+
     When force_import_all is True, we recalculate the sum from scratch to ensure
     consistency when filling gaps in historical data.
-    
+
     For electric meters, can separate consumption (positive) and return (negative).
-    
+
     Args:
         hass: Home Assistant instance
         service_point: Service point identifier
@@ -204,6 +206,7 @@ async def _import_hourly_stats(
         consumption_only: Only import positive values (consumption)
         return_only: Only import negative values (return to grid)
         force_import_all: If True, import all data regardless of existing stats
+
     """
     # Determine statistic ID based on type
     if is_gas:
@@ -222,7 +225,7 @@ async def _import_hourly_stats(
     # Get last imported sum to continue cumulative total (only if not forcing full import)
     last_sum = 0.0
     last_ts = 0.0
-    
+
     if not force_import_all:
         last = await get_instance(hass).async_add_executor_job(
             partial(
@@ -265,7 +268,7 @@ async def _import_hourly_stats(
         if return_only and quantity >= 0:
             skipped_filtered += 1
             continue
-        
+
         # For return values, use absolute value for sum
         if return_only:
             quantity = abs(quantity)
@@ -292,7 +295,7 @@ async def _import_hourly_stats(
             skipped_already_imported += 1
             continue
 
-        value = therms_to_ccf(quantity) if is_gas else quantity
+        value = quantity
         running_sum += value
         stats.append(
             StatisticData(
@@ -308,7 +311,7 @@ async def _import_hourly_stats(
             skipped_already_imported,
             statistic_id,
         )
-    
+
     if skipped_filtered > 0:
         filter_type = "consumption" if consumption_only else "return"
         _LOGGER.debug(
@@ -352,7 +355,7 @@ async def _import_hourly_stats(
         )
 
     async_add_external_statistics(hass, metadata, stats)
-    
+
     _LOGGER.info(
         "Imported %s hourly AMI stats for %s (sum=%.3f)",
         len(stats),
@@ -367,20 +370,21 @@ async def _import_interval_stats_electric(
     reads: list,
 ) -> None:
     """Import interval read statistics for electric meters with consumption/return separation.
-    
+
     Interval stats only cover the last 2 days (from midnight) - this matches the
     Hourly Usage API's ~2 day delay, ensuring no overlap between the two.
-    
+
     Always clears and reimports to ensure accuracy with partial hour data.
-    
+
     Creates two separate statistics:
     - Consumption (positive values): Energy used from grid
     - Return (negative values): Energy returned to grid (solar)
-    
+
     Args:
         hass: Home Assistant instance
         service_point: Service point identifier
         reads: List of interval reads
+
     """
     # Import consumption (positive values)
     await _import_interval_stats(
@@ -389,7 +393,7 @@ async def _import_interval_stats_electric(
         reads,
         consumption_only=True,
     )
-    
+
     # Import return (negative values) if any exist
     has_negative = any(float(r.get("value", 0)) < 0 for r in reads)
     if has_negative:
@@ -413,16 +417,17 @@ async def _import_interval_stats(
 
     Interval reads only cover the last 2 days (from midnight UTC).
     This matches the Hourly Usage API's ~2 day delay, ensuring no overlap.
-    
+
     Always clears and reimports all interval data within the 2-day window
     to ensure accuracy (handles partial hour data being updated).
-    
+
     Args:
         hass: Home Assistant instance
-        service_point: Service point identifier  
+        service_point: Service point identifier
         reads: List of interval reads
         consumption_only: Only import positive values (consumption)
         return_only: Only import negative values (return to grid)
+
     """
     # Calculate cutoff: only keep the last 2 calendar days
     # On Feb 3, we want Feb 2 and Feb 3 only (exclude Feb 1 and earlier)
@@ -431,7 +436,7 @@ async def _import_interval_stats(
     midnight_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff_midnight = midnight_today - timedelta(days=1)  # Yesterday midnight
     cutoff_ts = cutoff_midnight.timestamp()
-    
+
     # Determine statistic ID based on type
     if return_only:
         statistic_id = f"{DOMAIN}:{service_point}_electric_interval_return_usage"
@@ -441,7 +446,7 @@ async def _import_interval_stats(
         statistic_id = f"{DOMAIN}:{service_point}_electric_interval_usage"
         stat_name = f"{service_point} Electric Interval Usage"
         stat_type = "consumption"
-    
+
     _LOGGER.info(
         "Interval %s: cutoff=%s, reimporting all data within window",
         stat_type,
@@ -454,6 +459,7 @@ async def _import_interval_stats(
     recorder.async_clear_statistics([statistic_id])
     # Brief pause to let recorder process the clear
     import asyncio
+
     await asyncio.sleep(0.1)
 
     # Bucket interval reads by hour (HA requires top-of-hour timestamps).
@@ -461,7 +467,7 @@ async def _import_interval_stats(
     hourly_buckets: dict[datetime, float] = {}
     skipped_filtered = 0
     skipped_too_old = 0
-    
+
     for read in reads:
         start_str = str(read.get("startTime", ""))
         value = float(read.get("value", 0))
@@ -475,7 +481,7 @@ async def _import_interval_stats(
         if return_only and value >= 0:
             skipped_filtered += 1
             continue
-        
+
         # For return values, use absolute value for sum
         if return_only:
             value = abs(value)
@@ -489,12 +495,12 @@ async def _import_interval_stats(
             continue
 
         hour_start = dt.replace(minute=0, second=0, microsecond=0)
-        
+
         # Skip if older than cutoff (before yesterday midnight)
         if hour_start.timestamp() < cutoff_ts:
             skipped_too_old += 1
             continue
-            
+
         hourly_buckets[hour_start] = hourly_buckets.get(hour_start, 0.0) + value
 
     if skipped_filtered > 0:
@@ -505,7 +511,7 @@ async def _import_interval_stats(
             filter_type,
             filter_type,
         )
-    
+
     if skipped_too_old > 0:
         _LOGGER.info(
             "Interval %s: skipped %s readings older than cutoff",
@@ -553,7 +559,7 @@ async def _import_interval_stats(
         )
 
     async_add_external_statistics(hass, metadata, stats)
-    
+
     if return_only:
         _LOGGER.info(
             "Imported %s interval return stats for %s (sum=%.3f, last 2 days only)",
