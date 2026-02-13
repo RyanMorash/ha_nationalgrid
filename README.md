@@ -108,27 +108,31 @@ Each meter device includes detailed information:
 
 ## Data Updates
 
-The integration polls National Grid's API **every hour**. Each update fetches:
+The integration refreshes data at the **18th minute of every hour**, but not all data is fetched every time — see [Update Schedule](#update-schedule) for details.
 
-- Billing account information and meter details
-- Energy usage records for the last 12 months
-- Energy cost records for the current billing period
-- AMI (smart meter) energy usage data for meters that support it
-- Interval reads (15-minute granularity) for electric smart meters
+### First Setup
 
-### First Setup vs. Incremental Updates
-
-**On first setup**, the integration imports full historical data:
+On first setup, the integration imports full historical data:
 
 - Up to 5 years of AMI hourly usage data
 - Up to 2 days worth of interval read data (if available from the API)
 - 15 months of billing usage data
 
-**On incremental updates** (after first setup):
+### Midnight Refresh (00:18)
 
-- AMI data: Last 5 days (catches newly available data as it appears)
-- Interval data: Last 2 days (from midnight)
-- Billing data: Last 12 months
+A full data fetch including:
+
+- Billing account information and meter details
+- Energy usage records for the last 15 months
+- Energy cost records for the current billing period
+- AMI hourly usage data (last 5 days — catches newly available readings)
+- Interval reads (last 2 days, cleared and reimported)
+
+### Hourly Refresh (01:18 - 23:18)
+
+A lightweight fetch of only:
+
+- Interval reads (15-minute granularity) for electric smart meters
 
 ## Long-Term Statistics
 
@@ -197,17 +201,15 @@ The integration refreshes data at the **18th minute of every hour**:
 
 | Time | Refresh Type | What's Fetched |
 |------|--------------|----------------|
-| **00:18** (midnight) | Full refresh | **Forces full hourly import** (fills gaps) + clears & reimports Interval (last 2 days) |
+| **00:18** (midnight) | Full refresh | All data: billing, usage, costs, AMI hourly (last 5 days), interval (last 2 days) |
 | **01:18 - 23:18** | Interval-only | Interval reads only (hourly data unchanged) |
 
 ### Why This Schedule?
 
 - **Hourly Usage** data becomes available around midnight each day (with a ~2-day delay)
 - **Interval** data is near real-time and updates frequently
-- The midnight full refresh:
-  - **Forces a full hourly import** - reimports ALL hourly data to capture newly available readings
-  - Clears interval statistics and reimports only the last 2 days
-  - This ensures no gaps in hourly data and no overlap with interval stats
+- The midnight refresh fetches fresh AMI data from the API, and any newly available readings are imported incrementally (continuing from the last recorded statistic)
+- Interval statistics are always cleared and reimported (last 2 days only) to ensure accuracy
 - Hourly refreshes (01:18-23:18) only update interval stats to minimize API calls
 
 ## Troubleshooting

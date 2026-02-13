@@ -104,7 +104,9 @@ async def test_import_hourly_stats_gas(mock_get_instance, mock_add_stats, hass) 
 @patch("custom_components.national_grid.statistics.get_instance")
 async def test_import_interval_stats(mock_get_instance, mock_add_stats, hass) -> None:
     """Test interval reads are bucketed into hourly totals."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     # Use dates within the last 2 days so they pass the cutoff
     now = datetime.now(tz=UTC)
@@ -133,7 +135,9 @@ async def test_import_interval_stats_skips_empty(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test no stats imported when reads list is empty."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     coordinator = MagicMock()
     coordinator.data = _make_coordinator_data(interval_reads={"SP1": []})
@@ -259,7 +263,9 @@ async def test_import_interval_stats_skips_bad_time(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval reads with bad startTime are skipped."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     reads = [{"startTime": "not-a-time", "value": 0.25}]
     coordinator = MagicMock()
@@ -275,7 +281,9 @@ async def test_import_interval_stats_skips_empty_starttime(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval reads with empty startTime are skipped."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     reads = [{"startTime": "", "value": 0.25}]
     coordinator = MagicMock()
@@ -340,7 +348,9 @@ async def test_import_interval_stats_with_return_values(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats creates separate consumption and return statistics when negative values exist."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     # Use dates within the last 2 days
     now = datetime.now(tz=UTC)
@@ -391,7 +401,9 @@ async def test_import_interval_stats_no_return_when_no_negative(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
     """Test interval stats only creates consumption statistic when no negative values exist."""
-    mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
+    mock_recorder = MagicMock()
+    mock_recorder.async_clear_statistics = MagicMock()
+    mock_get_instance.return_value = mock_recorder
 
     # Use dates within the last 2 days
     now = datetime.now(tz=UTC)
