@@ -241,7 +241,7 @@ async def _import_hourly_stats(
         fuel = "gas"
         statistic_id = f"{DOMAIN}:{service_point}_{fuel}_hourly_usage"
         unit = "CCF"
-        unit_class = "gas"
+        unit_class = "volume"
     elif return_only:
         fuel = "electric"
         statistic_id = f"{DOMAIN}:{service_point}_{fuel}_return_hourly_usage"
