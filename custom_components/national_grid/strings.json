@@ -41,10 +41,6 @@
                 "entry_id": {
                     "name": "Config Entry ID",
                     "description": "Optional. The config entry ID of a specific National Grid integration to refresh."
-                },
-                "clear_interval_stats": {
-                    "name": "Clear Interval Statistics",
-                    "description": "If enabled, clears all interval statistics before reimporting. This removes old interval data and reimports only the last 2 days."
                 }
             }
         }
@@ -56,9 +52,6 @@
             },
             "energy_cost": {
                 "name": "Last Billing Cost"
-            },
-            "ami_latest_reading": {
-                "name": "Hourly Usage"
             }
         },
         "binary_sensor": {

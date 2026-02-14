@@ -49,8 +49,7 @@ def _get_energy_usage(
         usage,
     )
     if usage:
-        value = usage.get("usage")
-        return value
+        return usage.get("usage")
     return None
 
 
@@ -85,7 +84,6 @@ SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
         key="energy_cost",
         translation_key="energy_cost",
-        name="Last Billing Cost",
         native_unit_of_measurement="$",
         device_class=SensorDeviceClass.MONETARY,
         value_fn=_get_energy_cost,
@@ -93,7 +91,6 @@ SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
         key="energy_usage",
         translation_key="energy_usage",
-        name="Last Billing Usage",
         value_fn=_get_energy_usage,
         unit_fn=_get_energy_unit,
         device_class_fn=_get_energy_device_class,

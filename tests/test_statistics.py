@@ -223,7 +223,7 @@ async def test_import_hourly_stats_skips_bad_date(
 async def test_import_interval_stats_always_reimports_fresh(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
-    """Test interval stats always clears and reimports fresh (no continuation from existing sum)."""
+    """Test interval stats always clears and reimports fresh."""
     # Use dates within the last 2 days
     now = datetime.now(tz=UTC)
     base_time = (now - timedelta(hours=3)).replace(minute=0, second=0, microsecond=0)
@@ -240,7 +240,7 @@ async def test_import_interval_stats_always_reimports_fresh(
     coordinator = MagicMock()
     coordinator.data = _make_coordinator_data(
         interval_reads={"SP1": reads},
-        is_first_refresh=False,  # Even on incremental, interval stats always reimport fresh
+        is_first_refresh=False,  # Interval stats always reimport fresh
     )
 
     await async_import_all_statistics(hass, coordinator)
@@ -311,10 +311,10 @@ async def test_import_all_statistics_skips_missing_meter(hass) -> None:
 async def test_import_hourly_stats_imports_all_new_data(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
-    """Test that all new readings are imported regardless of age (no arbitrary cutoff)."""
+    """Test all new readings are imported regardless of age."""
     mock_get_instance.return_value.async_add_executor_job = AsyncMock(return_value={})
 
-    # Create readings: both recent and old - all should be imported since there's no cutoff
+    # Both recent and old readings should be imported (no cutoff)
     now = datetime.now(tz=UTC)
     recent_time = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:00:00.000Z")
     old_time = (now - timedelta(hours=72)).strftime("%Y-%m-%dT%H:00:00.000Z")
@@ -347,7 +347,7 @@ async def test_import_hourly_stats_imports_all_new_data(
 async def test_import_interval_stats_with_return_values(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
-    """Test interval stats creates separate consumption and return statistics when negative values exist."""
+    """Test interval stats creates separate consumption and return stats."""
     mock_recorder = MagicMock()
     mock_recorder.async_clear_statistics = MagicMock()
     mock_get_instance.return_value = mock_recorder
@@ -356,7 +356,7 @@ async def test_import_interval_stats_with_return_values(
     now = datetime.now(tz=UTC)
     base_time = (now - timedelta(hours=3)).replace(minute=0, second=0, microsecond=0)
 
-    # Create interval reads with both positive (consumption) and negative (return/solar) values
+    # Mix of positive (consumption) and negative (return/solar) values
     reads = [
         {"startTime": base_time.isoformat(), "value": 0.5},  # Consumption
         {
@@ -400,7 +400,7 @@ async def test_import_interval_stats_with_return_values(
 async def test_import_interval_stats_no_return_when_no_negative(
     mock_get_instance, mock_add_stats, hass
 ) -> None:
-    """Test interval stats only creates consumption statistic when no negative values exist."""
+    """Test only consumption stat is created when no negatives."""
     mock_recorder = MagicMock()
     mock_recorder.async_clear_statistics = MagicMock()
     mock_get_instance.return_value = mock_recorder

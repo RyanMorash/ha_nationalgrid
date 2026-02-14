@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 
     from .data import NationalGridConfigEntry
 
+# Truncate datetime strings to "YYYY-MM-DDTHH:MM" for log readability
+_DATETIME_LOG_LEN = 16
+
 
 @dataclass(frozen=True)
 class AmiMeterIdentifier:
@@ -93,17 +96,13 @@ class NationalGridDataUpdateCoordinator(
             config=NationalGridConfig(username=username, password=password),
             session=session,
         )
-        self._last_update_success = True
+        self._previous_update_success = True
         self._is_first_refresh = True
         self._interval_only_mode = False  # When True, only fetch interval reads
         self._is_midnight_refresh = (
             False  # When True, force full hourly import + clear interval stats
         )
         self._pending_full_refresh = False  # Retry flag for failed full refreshes
-
-    def set_midnight_refresh(self, value: bool) -> None:
-        """Set whether this is a midnight refresh (force full imports)."""
-        self._is_midnight_refresh = value
 
     async def async_refresh_interval_only(self) -> None:
         """Refresh only interval data (skip AMI hourly data)."""
@@ -154,17 +153,17 @@ class NationalGridDataUpdateCoordinator(
             NationalGridError,
         ) as exception:
             _LOGGER.warning("National Grid %s refresh failed: %s", mode, exception)
-            if self._last_update_success:
+            if self._previous_update_success:
                 _LOGGER.warning("National Grid service unavailable: %s", exception)
-            self._last_update_success = False
+            self._previous_update_success = False
             raise UpdateFailed(exception) from exception
 
-        if not self._last_update_success:
+        if not self._previous_update_success:
             _LOGGER.info("National Grid service recovered")
-        self._last_update_success = True
+        self._previous_update_success = True
         return data
 
-    async def _fetch_all_data(self) -> NationalGridCoordinatorData:
+    async def _fetch_all_data(self) -> NationalGridCoordinatorData:  # noqa: PLR0912
         """Fetch all data from the API."""
         selected_accounts: list[str] = self.config_entry.data.get(
             CONF_SELECTED_ACCOUNTS, []
@@ -183,7 +182,8 @@ class NationalGridDataUpdateCoordinator(
         # Mark if this is the first refresh for historical import
         data.is_first_refresh = self._is_first_refresh
 
-        # Mark if this is a midnight refresh (force full hourly import + clear interval stats)
+        # Mark if this is a midnight refresh
+        # (force full hourly import + clear interval stats)
         data.is_midnight_refresh = self._is_midnight_refresh
 
         if self._is_first_refresh:
@@ -193,7 +193,8 @@ class NationalGridDataUpdateCoordinator(
 
         if self._is_midnight_refresh:
             _LOGGER.info(
-                "Midnight refresh - will force full hourly import and clear/reimport interval stats"
+                "Midnight refresh - will force full hourly import"
+                " and clear/reimport interval stats"
             )
 
         # Calculate from_month for usage query.
@@ -238,7 +239,8 @@ class NationalGridDataUpdateCoordinator(
             ami_count = sum(len(a) for a in data.ami_usages.values())
             interval_count = sum(len(r) for r in data.interval_reads.values())
             _LOGGER.info(
-                "Full refresh complete: %s AMI hourly records, %s interval reads fetched",
+                "Full refresh complete: %s AMI hourly records,"
+                " %s interval reads fetched",
                 ami_count,
                 interval_count,
             )
@@ -394,13 +396,14 @@ class NationalGridDataUpdateCoordinator(
         else:
             return account_costs
 
-    async def _fetch_ami_data(
+    async def _fetch_ami_data(  # noqa: PLR0913
         self,
         billing_account: BillingAccount,
         meter_nodes: list[Meter],
         today: date,
         ami_usages: dict[str, list[AmiEnergyUsage]],
         interval_reads: dict[str, list[IntervalRead]],
+        *,
         is_first_refresh: bool = False,
     ) -> None:
         """Fetch AMI energy usages for AMI-capable meters.
@@ -425,139 +428,189 @@ class NationalGridDataUpdateCoordinator(
             # Skip AMI hourly data when in interval-only mode
             # (AMI data only updates once daily around midnight)
             if not self._interval_only_mode:
-                # AMI data fetch strategy:
-                # - First refresh: Get up to 5 years to establish full baseline
-                # - Subsequent: Get last few days to catch newly available data
-                #
-                # Note: The energyusage-cu-uwp-gql API only returns data that's "older than 2 days"
-                # (i.e., before midnight 2 days ago). We request up to today and let the API
-                # decide what data is available. The API enforces its own cutoff.
-                try:
-                    if is_first_refresh:
-                        # First time: get up to 5 years of historical AMI data
-                        date_from = today - timedelta(days=1825)  # ~5 years
-                        date_to = (
-                            today  # Request up to today; API returns what's available
-                        )
-                        _LOGGER.info(
-                            "First refresh: fetching AMI data from %s to %s for meter %s (up to 5 years)",
-                            date_from,
-                            date_to,
-                            sp,
-                        )
-                    else:
-                        # Incremental: get last 5 days to catch any newly available data
-                        # The API only returns data older than ~2 days, so we request a bit more
-                        # to ensure we get any data that became available since last refresh
-                        date_from = today - timedelta(days=5)
-                        date_to = today
-                        _LOGGER.debug(
-                            "Incremental: fetching AMI data from %s to %s for meter %s",
-                            date_from,
-                            date_to,
-                            sp,
-                        )
-
-                    ami_meter = AmiMeterIdentifier(
-                        meter_number=str(meter.get("meterNumber", "")),
-                        premise_number=premise_number,
-                        service_point_number=sp,
-                        meter_point_number=str(meter.get("meterPointNumber", "")),
-                    )
-                    ami_data = await self.api.get_ami_energy_usages(
-                        meter_number=ami_meter.meter_number,
-                        premise_number=ami_meter.premise_number,
-                        service_point_number=ami_meter.service_point_number,
-                        meter_point_number=ami_meter.meter_point_number,
-                        date_from=date_from,
-                        date_to=date_to,
-                    )
-                    ami_usages[sp] = ami_data
-
-                    # Debug: Log actual date range returned by API
-                    if ami_data:
-                        dates = [r.get("date") for r in ami_data if r.get("date")]
-                        if dates:
-                            min_date = min(dates)
-                            max_date = max(dates)
-                            _LOGGER.info(
-                                "Fetched %s AMI usage records for meter %s (date range: %s to %s)",
-                                len(ami_data),
-                                sp,
-                                min_date,
-                                max_date,
-                            )
-                        else:
-                            _LOGGER.debug(
-                                "Fetched %s AMI usage records for meter %s",
-                                len(ami_data),
-                                sp,
-                            )
-                    else:
-                        _LOGGER.debug("No AMI usage records returned for meter %s", sp)
-                except (
-                    CannotConnectError,
-                    RetryExhaustedError,
-                    NationalGridError,
-                ) as err:
-                    _LOGGER.debug(
-                        "Could not fetch AMI usages for meter %s: %s",
-                        sp,
-                        err,
-                    )
-
-            # Fetch interval reads for electric meters only.
-            fuel_type = str(meter.get("fuelType", ""))
-            if fuel_type == "Gas":
-                continue
-
-            # Interval reads strategy:
-            # The AMIAdapter REST API only supports ~43 hours of historical data.
-            # Always fetch last 42 hours to stay within the API limit.
-            # For historical data, use AMI Hourly Usage (GraphQL) which supports years.
-            try:
-                now = datetime.now(tz=UTC)
-                # API limit is ~43 hours, use 42 hours to be safe
-                start_dt = now - timedelta(hours=42)
-
-                reads = await self.api.get_interval_reads(
-                    premise_number=premise_number,
-                    service_point_number=sp,
-                    start_datetime=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                )
-                interval_reads[sp] = reads
-
-                if reads:
-                    # Log the actual date range received
-                    times = [r.get("startTime") for r in reads if r.get("startTime")]
-                    if times:
-                        min_time = min(times)
-                        max_time = max(times)
-                        _LOGGER.debug(
-                            "Fetched %s interval reads for meter %s (range: %s to %s)",
-                            len(reads),
-                            sp,
-                            min_time[:16] if len(min_time) > 16 else min_time,
-                            max_time[:16] if len(max_time) > 16 else max_time,
-                        )
-                    else:
-                        _LOGGER.debug(
-                            "Fetched %s interval reads for meter %s",
-                            len(reads),
-                            sp,
-                        )
-                else:
-                    _LOGGER.debug("No interval reads returned for meter %s", sp)
-            except (
-                CannotConnectError,
-                RetryExhaustedError,
-                NationalGridError,
-            ) as err:
-                _LOGGER.debug(
-                    "Could not fetch interval reads for meter %s: %s",
+                await self._fetch_ami_hourly_data(
+                    meter,
+                    premise_number,
                     sp,
-                    err,
+                    today,
+                    ami_usages,
+                    is_first_refresh=is_first_refresh,
                 )
+
+            await self._fetch_interval_reads(meter, premise_number, sp, interval_reads)
+
+    async def _fetch_ami_hourly_data(  # noqa: PLR0913
+        self,
+        meter: Meter,
+        premise_number: str,
+        sp: str,
+        today: date,
+        ami_usages: dict[str, list[AmiEnergyUsage]],
+        *,
+        is_first_refresh: bool = False,
+    ) -> None:
+        """Fetch AMI hourly usage data for a single meter.
+
+        AMI data fetch strategy:
+        - First refresh: Get up to 5 years of history
+        - Subsequent: Get last few days for new data
+
+        The energyusage-cu-uwp-gql API only returns data
+        older than 2 days. We request up to today and let
+        the API decide what data is available.
+        """
+        try:
+            if is_first_refresh:
+                # First time: up to 5 years of historical AMI data
+                date_from = today - timedelta(days=1825)
+                date_to = today
+                _LOGGER.info(
+                    "First refresh: fetching AMI data"
+                    " from %s to %s for meter %s"
+                    " (up to 5 years)",
+                    date_from,
+                    date_to,
+                    sp,
+                )
+            else:
+                # Incremental: last 5 days to catch new data.
+                # API returns data older than ~2 days, so we
+                # request a bit more for safety.
+                date_from = today - timedelta(days=5)
+                date_to = today
+                _LOGGER.debug(
+                    "Incremental: fetching AMI data from %s to %s for meter %s",
+                    date_from,
+                    date_to,
+                    sp,
+                )
+
+            ami_meter = AmiMeterIdentifier(
+                meter_number=str(meter.get("meterNumber", "")),
+                premise_number=premise_number,
+                service_point_number=sp,
+                meter_point_number=str(meter.get("meterPointNumber", "")),
+            )
+            ami_data = await self.api.get_ami_energy_usages(
+                meter_number=ami_meter.meter_number,
+                premise_number=ami_meter.premise_number,
+                service_point_number=ami_meter.service_point_number,
+                meter_point_number=ami_meter.meter_point_number,
+                date_from=date_from,
+                date_to=date_to,
+            )
+            ami_usages[sp] = ami_data
+
+            self._log_ami_results(ami_data, sp)
+        except (
+            CannotConnectError,
+            RetryExhaustedError,
+            NationalGridError,
+        ) as err:
+            _LOGGER.debug(
+                "Could not fetch AMI usages for meter %s: %s",
+                sp,
+                err,
+            )
+
+    @staticmethod
+    def _log_ami_results(ami_data: list[AmiEnergyUsage], sp: str) -> None:
+        """Log AMI data results with date range info."""
+        if ami_data:
+            dates = [r.get("date") for r in ami_data if r.get("date")]
+            if dates:
+                _LOGGER.info(
+                    "Fetched %s AMI usage records for meter %s (date range: %s to %s)",
+                    len(ami_data),
+                    sp,
+                    min(dates),
+                    max(dates),
+                )
+            else:
+                _LOGGER.debug(
+                    "Fetched %s AMI usage records for meter %s",
+                    len(ami_data),
+                    sp,
+                )
+        else:
+            _LOGGER.debug(
+                "No AMI usage records returned for meter %s",
+                sp,
+            )
+
+    async def _fetch_interval_reads(
+        self,
+        meter: Meter,
+        premise_number: str,
+        sp: str,
+        interval_reads: dict[str, list[IntervalRead]],
+    ) -> None:
+        """Fetch interval reads for a single electric meter.
+
+        The AMIAdapter REST API only supports ~43 hours of
+        historical data. We fetch the last 42 hours to stay
+        within the API limit. For older historical data, use
+        AMI Hourly Usage (GraphQL) which supports years.
+        """
+        # Interval reads are for electric meters only.
+        fuel_type = str(meter.get("fuelType", ""))
+        if fuel_type == "Gas":
+            return
+
+        try:
+            now = datetime.now(tz=UTC)
+            # API limit is ~43 hours, use 42 to be safe
+            start_dt = now - timedelta(hours=42)
+
+            reads = await self.api.get_interval_reads(
+                premise_number=premise_number,
+                service_point_number=sp,
+                start_datetime=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            interval_reads[sp] = reads
+
+            if reads:
+                self._log_interval_results(reads, sp)
+            else:
+                _LOGGER.debug(
+                    "No interval reads returned for meter %s",
+                    sp,
+                )
+        except (
+            CannotConnectError,
+            RetryExhaustedError,
+            NationalGridError,
+        ) as err:
+            _LOGGER.debug(
+                "Could not fetch interval reads for meter %s: %s",
+                sp,
+                err,
+            )
+
+    @staticmethod
+    def _log_interval_results(reads: list[IntervalRead], sp: str) -> None:
+        """Log interval read results with time range info."""
+        times = [r.get("startTime") for r in reads if r.get("startTime")]
+        if times:
+            min_time = min(times)
+            max_time = max(times)
+            _LOGGER.debug(
+                "Fetched %s interval reads for meter %s (range: %s to %s)",
+                len(reads),
+                sp,
+                min_time[:_DATETIME_LOG_LEN]
+                if len(min_time) > _DATETIME_LOG_LEN
+                else min_time,
+                max_time[:_DATETIME_LOG_LEN]
+                if len(max_time) > _DATETIME_LOG_LEN
+                else max_time,
+            )
+        else:
+            _LOGGER.debug(
+                "Fetched %s interval reads for meter %s",
+                len(reads),
+                sp,
+            )
 
     def get_meter_data(self, service_point_number: str) -> MeterData | None:
         """Get meter data by service point number."""

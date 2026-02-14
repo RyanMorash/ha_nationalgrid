@@ -78,25 +78,22 @@ class NationalGridEntity(CoordinatorEntity[NationalGridDataUpdateCoordinator]):
         # Build configuration URL with account info if available
         config_url = "https://myaccount.nationalgrid.com"
 
-        # Build device info
-        device_info = DeviceInfo(
+        # Extract suggested area from service address (first part before comma)
+        suggested_area: str | None = None
+        if service_address:
+            parts = service_address.split(",")
+            if len(parts) >= 2:  # noqa: PLR2004
+                suggested_area = parts[0].strip().title()
+
+        return DeviceInfo(
             identifiers={(DOMAIN, self._service_point_number)},
             serial_number=meter_number,
             name=name,
             manufacturer="National Grid",
             model=model,
             configuration_url=config_url,
+            suggested_area=suggested_area,
         )
-
-        # Add suggested area based on service address (first part before comma)
-        if service_address:
-            # Try to extract a reasonable area name from the address
-            parts = service_address.split(",")
-            if len(parts) >= 2:
-                # Use city or first meaningful part
-                device_info["suggested_area"] = parts[0].strip().title()
-
-        return device_info
 
     @property
     def account_id(self) -> str | None:
