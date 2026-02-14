@@ -69,19 +69,24 @@ async def async_setup_entry(
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     # Schedule updates at the 18th minute of every hour
-    # - At 00:18 (midnight): Full refresh + clear interval stats to sync with new Hourly data
+    # - At 00:18 (midnight): Full refresh to sync with new Hourly data
     # - All other hours: Interval-only refresh (just interval reads)
+    # - If a full refresh failed, retry it at the next interval
     def _scheduled_refresh(now: datetime) -> None:
         """Refresh data at scheduled time."""
         if now.hour == 0:
             _LOGGER.info(
-                "Midnight refresh triggered at %s - fetching Hourly + clearing/reimporting Interval data",
+                "Midnight refresh triggered at %s",
                 now,
             )
             hass.add_job(coordinator.async_refresh_full_with_clear)
+        elif coordinator.pending_full_refresh:
+            _LOGGER.info("Retrying failed full refresh at %s", now)
+            hass.add_job(coordinator.async_refresh_full_with_clear)
         else:
             _LOGGER.info(
-                "Hourly refresh triggered at %s - fetching Interval data only", now
+                "Hourly refresh triggered at %s - fetching Interval data only",
+                now,
             )
             hass.add_job(coordinator.async_refresh_interval_only)
 

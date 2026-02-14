@@ -99,6 +99,7 @@ class NationalGridDataUpdateCoordinator(
         self._is_midnight_refresh = (
             False  # When True, force full hourly import + clear interval stats
         )
+        self._pending_full_refresh = False  # Retry flag for failed full refreshes
 
     def set_midnight_refresh(self, value: bool) -> None:
         """Set whether this is a midnight refresh (force full imports)."""
@@ -112,13 +113,30 @@ class NationalGridDataUpdateCoordinator(
         finally:
             self._interval_only_mode = False
 
+    @property
+    def pending_full_refresh(self) -> bool:
+        """Whether a full refresh needs to be retried."""
+        return self._pending_full_refresh
+
     async def async_refresh_full_with_clear(self) -> None:
-        """Full refresh for midnight: force hourly import + clear interval stats."""
+        """Full refresh for midnight: fetch all data + import statistics.
+
+        If the refresh fails, sets a pending flag so the next scheduled
+        interval retries a full refresh instead of interval-only.
+        """
         self._is_midnight_refresh = True
         try:
             await self.async_refresh()
         finally:
             self._is_midnight_refresh = False
+
+        if self.last_update_success:
+            self._pending_full_refresh = False
+        else:
+            self._pending_full_refresh = True
+            _LOGGER.warning(
+                "Full refresh failed — will retry at next scheduled interval"
+            )
 
     async def _async_update_data(self) -> NationalGridCoordinatorData:
         """Update data via library."""
