@@ -35,9 +35,9 @@ The integration follows the standard Home Assistant custom component pattern:
 
 - **`data.py`**: `NationalGridConfigEntry` type alias for typed config entries. `entry.runtime_data` is the coordinator directly.
 
-- **`const.py`**: Domain, logger, attribution, `CONF_SELECTED_ACCOUNTS`, unit constants (`UNIT_KWH`, `UNIT_CCF`, `THERM_TO_CCF`), and `therms_to_ccf()` conversion helper.
+- **`const.py`**: Domain, logger, attribution, `CONF_SELECTED_ACCOUNTS`, and unit constants (`UNIT_KWH`, `UNIT_CCF`).
 
-- **`statistics.py`**: Imports long-term statistics into Home Assistant's recorder. `async_import_all_statistics` processes hourly and interval data for each meter, converting units as needed (therms → CCF for gas).
+- **`statistics.py`**: Imports long-term statistics into Home Assistant's recorder. `async_import_all_statistics` processes hourly and interval data for each meter.
 
 - **Platform files** (`sensor.py`, `binary_sensor.py`): Each defines entity descriptions and entity classes inheriting from `NationalGridEntity`.
 

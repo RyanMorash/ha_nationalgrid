@@ -49,15 +49,14 @@ def test_energy_usage_electric() -> None:
     assert result == 500.0
 
 
-def test_energy_usage_gas_converts() -> None:
-    """Test usage value for gas meter converts therms to CCF."""
+def test_energy_usage_gas_returns_value_directly() -> None:
+    """Test usage value for gas meter returns API value directly (already CCF)."""
     meter_data = _make_meter_data("Gas")
     coordinator = MagicMock()
-    coordinator.get_latest_usage.return_value = {"usage": 10.0, "usageType": "THERMS"}
+    coordinator.get_latest_usage.return_value = {"usage": 10.0, "usageType": "CCF"}
     result = _get_energy_usage(coordinator, meter_data)
-    from custom_components.national_grid.const import therms_to_ccf
 
-    assert result == therms_to_ccf(10.0)
+    assert result == 10.0
 
 
 def test_energy_usage_none() -> None:

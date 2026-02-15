@@ -43,21 +43,56 @@ class NationalGridEntity(CoordinatorEntity[NationalGridDataUpdateCoordinator]):
             )
 
         meter: Meter = meter_data.meter
+        billing_account: BillingAccount = meter_data.billing_account
 
-        meter_number = meter.get("meterNumber", "") or self._service_point_number
-        fuel_type = meter.get("fuelType", "")
+        meter_number = str(meter.get("meterNumber", "")) or self._service_point_number
+        fuel_type = str(meter.get("fuelType", ""))
+        has_ami = bool(meter.get("hasAmiSmartMeter", False))
+        is_smart = bool(meter.get("isSmartMeter", False))
+
+        # Build device name
         name = (
             f"{fuel_type.title()} Meter"
             if fuel_type
             else f"Meter {self._service_point_number}"
         )
 
+        # Determine model based on meter capabilities
+        if has_ami:
+            model = "AMI Smart Meter"
+        elif is_smart:
+            model = "Smart Meter"
+        else:
+            model = "Standard Meter"
+
+        # Add fuel type to model if available
+        if fuel_type:
+            model = f"{fuel_type.title()} {model}"
+
+        # Extract address and account info from billing account
+        service_address = ""
+        if billing_account:
+            addr_info = billing_account.get("serviceAddress", {})
+            service_address = str(addr_info.get("serviceAddressCompressed", ""))
+
+        # Build configuration URL with account info if available
+        config_url = "https://myaccount.nationalgrid.com"
+
+        # Extract suggested area from service address (first part before comma)
+        suggested_area: str | None = None
+        if service_address:
+            parts = service_address.split(",")
+            if len(parts) >= 2:  # noqa: PLR2004
+                suggested_area = parts[0].strip().title()
+
         return DeviceInfo(
             identifiers={(DOMAIN, self._service_point_number)},
             serial_number=meter_number,
             name=name,
             manufacturer="National Grid",
-            configuration_url="https://myaccount.nationalgrid.com",
+            model=model,
+            configuration_url=config_url,
+            suggested_area=suggested_area,
         )
 
     @property

@@ -45,7 +45,6 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NationalGridBinarySensorEntityDescription, ...
         translation_key="has_smart_meter",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_has_smart_meter,
-        icon="mdi:meter-electric",
     ),
 )
 

@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 
-from .const import _LOGGER, DOMAIN, UNIT_CCF, UNIT_KWH, therms_to_ccf
+from .const import _LOGGER, DOMAIN, UNIT_CCF, UNIT_KWH
 from .entity import NationalGridEntity
 
 PARALLEL_UPDATES = 1
@@ -49,10 +49,7 @@ def _get_energy_usage(
         usage,
     )
     if usage:
-        value = usage.get("usage")
-        if value is not None and fuel_type and fuel_type.upper() == "GAS":
-            return therms_to_ccf(value)
-        return value
+        return usage.get("usage")
     return None
 
 
@@ -87,7 +84,6 @@ SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
         key="energy_cost",
         translation_key="energy_cost",
-        name="Last Billing Cost",
         native_unit_of_measurement="$",
         device_class=SensorDeviceClass.MONETARY,
         value_fn=_get_energy_cost,
@@ -95,7 +91,6 @@ SENSOR_DESCRIPTIONS: tuple[NationalGridSensorEntityDescription, ...] = (
     NationalGridSensorEntityDescription(
         key="energy_usage",
         translation_key="energy_usage",
-        name="Last Billing Usage",
         value_fn=_get_energy_usage,
         unit_fn=_get_energy_unit,
         device_class_fn=_get_energy_device_class,

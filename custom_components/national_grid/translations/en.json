@@ -33,6 +33,18 @@
             "reauth_successful": "Re-authentication successful."
         }
     },
+    "services": {
+        "force_full_refresh": {
+            "name": "Force Full Refresh",
+            "description": "Triggers a full historical data refresh for National Grid statistics. This will fetch up to 5 years of AMI hourly data and interval data, reimporting all statistics.",
+            "fields": {
+                "entry_id": {
+                    "name": "Config Entry ID",
+                    "description": "Optional. The config entry ID of a specific National Grid integration to refresh."
+                }
+            }
+        }
+    },
     "entity": {
         "sensor": {
             "energy_usage": {
@@ -40,9 +52,6 @@
             },
             "energy_cost": {
                 "name": "Last Billing Cost"
-            },
-            "ami_latest_reading": {
-                "name": "Hourly Usage"
             }
         },
         "binary_sensor": {

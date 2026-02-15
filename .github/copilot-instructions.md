@@ -193,7 +193,7 @@ The repository includes `.devcontainer.json` configured with:
 5. **Statistics Import** (`statistics.py`):
    - Imports hourly/interval data to HA's recorder as external statistics
    - Enables Energy Dashboard integration
-   - Converts therms → CCF for gas (1 therm = 1.038 CCF)
+
 
 ### Key Files & Configuration
 
@@ -291,9 +291,7 @@ entry.runtime_data = coordinator  # No wrapper dataclass
 
 4. **Constants**: Define in `const.py`, import via `from .const import DOMAIN, _LOGGER`
 
-5. **Unit Conversions**: Use helper `therms_to_ccf()` from `const.py` for gas conversions
-
-6. **Error Handling**: Catch `aionatgrid` exceptions, translate to HA exceptions:
+5. **Error Handling**: Catch `aionatgrid` exceptions, translate to HA exceptions:
    - `InvalidAuthError` → `ConfigEntryAuthFailed`
    - Other errors → `UpdateFailed`
 
