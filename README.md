@@ -1,8 +1,13 @@
 # National Grid Integration for Home Assistant
 
-A custom [Home Assistant](https://www.home-assistant.io/) integration that provides energy usage, cost, and meter data from [National Grid](https://www.nationalgridus.com/) utility accounts. It uses the [aionatgrid](https://github.com/ryanmorash/aionatgrid) library to communicate with National Grid's API.
+> [!IMPORTANT]
+> This repository is being archived and is no longer maintained.
+> Please use **@virtitnerd/ha_nationalgrid** instead:
+> https://github.com/virtitnerd/ha_nationalgrid
 
-This integration polls your National Grid account once per hour and creates sensor and binary sensor entities for each meter linked to your account, giving you visibility into your electricity and gas billing data directly in Home Assistant.
+A custom [Home Assistant](https://www.home-assistant.io/) integration that provides energy usage, cost, and meter data from [National Grid](https://www.nationalgridus.com/) utility accounts. It use[...]
+
+This integration polls your National Grid account once per hour and creates sensor and binary sensor entities for each meter linked to your account, giving you visibility into your electricity and [...]
 
 ## Installation
 
